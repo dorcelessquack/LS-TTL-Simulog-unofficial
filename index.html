@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIMULOG LS-TTL Simulator</title>
+    <meta name="description" content="Digitaltechnik-Simulator für das SIMULOG LS-TTL System – Rechnerarchitektur Praktikum">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        /* ============================================================
+         * CSS-Variablen
+         * ============================================================ */
+        :root {
+            --bg-desk: #2c3e50;
+            --sidebar-bg: #f8f9fa;
+            --board-bg: #e4e5e6;
+            --module-bg: #fdfdfd;
+            --wire-red: #d32f2f;
+            --wire-blue: #1976d2;
+            --grid-size: 120px;
+            --sidebar-breite: 320px;
+        }
+
+        /* ============================================================
+         * Grundlayout
+         * ============================================================ */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            background: var(--bg-desk);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ============================================================
+         * Seitenleiste (Bauteile-Inventar)
+         * ============================================================ */
+        #seitenleiste {
+            width: var(--sidebar-breite);
+            min-width: var(--sidebar-breite);
+            background: var(--sidebar-bg);
+            border-right: 2px solid #ccc;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: margin-left 0.3s ease;
+        }
+
+        #seitenleiste.eingeklappt {
+            margin-left: calc(-1 * var(--sidebar-breite));
+        }
+
+        #seitenleiste-kopf {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #seitenleiste h2 {
+            margin: 0;
+            padding: 15px;
+            background: #e0e0e0;
+            font-size: 18px;
+            border-bottom: 1px solid #ccc;
+            flex-grow: 1;
+        }
+
+        #inventar {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        #regeln {
+            padding: 0 12px 12px;
+            font-size: 13px;
+        }
+
+        #regeln ul {
+            padding-left: 18px;
+            color: #444;
+        }
+
+        .inventar-eintrag {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            cursor: grab;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .inventar-eintrag:hover:not(.leer) {
+            transform: translateY(-2px);
+            border-color: #999;
+        }
+
+        .inventar-eintrag.leer {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        .inventar-eintrag.ausgewaehlt {
+            border-color: #3498db;
+            background: #ebf5fb;
+            box-shadow: 0 0 0 2px #3498db, 0 2px 6px rgba(52, 152, 219, 0.3);
+        }
+
+        .mini-karten-rahmen {
+            width: 45px;
+            height: 90px;
+            margin-right: 12px;
+            background: var(--module-bg);
+            border: 1px solid #b0b0b0;
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .inventar-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .inventar-name {
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .inventar-anzahl {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* ============================================================
+         * Seitenleiste Toggle-Button
+         * ============================================================ */
+        .seitenleiste-toggle {
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 200;
+            width: 26px;
+            height: 52px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #bbb;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 52px;
+            text-align: center;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+            transition: background 0.2s;
+            padding: 0;
+            color: #555;
+        }
+
+        .seitenleiste-toggle:hover {
+            background: #fff;
+            color: #222;
+        }
+
+        /* ============================================================
+         * Werkzeugleiste
+         * ============================================================ */
+        #werkzeugleiste {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 5px 10px;
+            border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 200;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .werkzeug-btn {
+            background: #eee;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .werkzeug-btn.aktiv {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .toolbar-trenner {
+            width: 1px;
+            height: 22px;
+            background: #ccc;
+        }
+
+        /* ============================================================
+         * Arbeitsbereich & Steckbrett
+         * ============================================================ */
+        #arbeitsbereich {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #brett-rahmen {
+            position: relative;
+            box-shadow: 10px 15px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            background: var(--board-bg);
+            border: 2px solid #cfd0d1;
+            transform-origin: center center;
+            transition: transform 0.15s ease;
+        }
+
+        #brett-gitter {
+            display: grid;
+            grid-template-columns: repeat(6, var(--grid-size));
+            grid-template-rows: repeat(4, var(--grid-size));
+            gap: 2px;
+            background: #cfd0d1;
+            padding: 2px;
+        }
+
+        .brett-feld {
+            position: relative;
+            background: var(--board-bg);
+            width: 100%;
+            height: 100%;
+            box-shadow:
+                inset 1px 1px 3px rgba(255, 255, 255, 0.8),
+                inset -1px -1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .brett-bohrung {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            box-shadow: inset 1px 1px 3px #444, 0 1px 1px #fff;
+            transform: translate(-50%, -50%);
+        }
+
+        /* ============================================================
+         * Module (Einsteckkarten)
+         * ============================================================ */
+        #modul-ebene {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            pointer-events: none;
+        }
+
+        .modul {
+            position: absolute;
+            width: 120px;
+            height: 240px;
+            background: var(--module-bg);
+            border: 1px solid #b0b0b0;
+            border-bottom: 3px solid #a0a0a0;
+            border-right: 2px solid #a0a0a0;
+            box-sizing: border-box;
+            border-radius: 3px;
+            box-shadow: 4px 6px 12px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            z-index: 10;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            touch-action: none;
+        }
+
+        .modul:not(.fixiert):active {
+            cursor: grabbing;
+            z-index: 50 !important;
+        }
+
+        .modul.fixiert {
+            box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.2);
+            cursor: default;
+        }
+
+        body.modus-loeschen .modul:not(.fixiert) {
+            cursor: crosshair;
+            border-color: #e74c3c;
+        }
+
+        body.modus-loeschen .modul:not(.fixiert):hover {
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.8);
+        }
+
+        .zieh-geist {
+            position: absolute;
+            width: 120px;
+            height: 240px;
+            background: rgba(52, 152, 219, 0.2);
+            border: 2px dashed #3498db;
+            pointer-events: none;
+            display: none;
+            z-index: 5;
+            box-sizing: border-box;
+        }
+
+        /* ============================================================
+         * SVG-Logik-Symbole & Beschriftungen
+         * ============================================================ */
+        .modul-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .logik-pfad {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1.5;
+            stroke-linejoin: miter;
+        }
+
+        .logik-text {
+            fill: #000;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: 'Segoe UI', sans-serif;
+            alignment-baseline: central;
+        }
+
+        .port-hintergrund {
+            fill: #111;
+            stroke: #ddd;
+            stroke-width: 1.5;
+        }
+
+        /* ============================================================
+         * Anschlüsse (Ports)
+         * ============================================================ */
+        .port {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 20;
+            border: 2px solid transparent;
+            transform: translate(-50%, -50%);
+        }
+
+        .port:hover {
+            border-color: #f1c40f;
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+
+        .port.ausgewaehlt {
+            border-color: #e67e22;
+            box-shadow: 0 0 8px #f1c40f;
+        }
+
+        /* ============================================================
+         * LEDs
+         * ============================================================ */
+        .led {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #5a1010;
+            border-radius: 50%;
+            border: 1px solid #222;
+            box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.6);
+            z-index: 15;
+            transform: translate(-50%, -50%);
+        }
+
+        .led.an {
+            background: #ff3b30;
+            box-shadow:
+                0 0 8px #ff3b30,
+                inset -2px -2px 4px rgba(0, 0, 0, 0.3),
+                inset 2px 2px 2px rgba(255, 255, 255, 0.6);
+        }
+
+        /* ============================================================
+         * Schalter (Kippschalter für Input-Module)
+         * ============================================================ */
+        .schalter {
+            position: absolute;
+            width: 14px;
+            height: 24px;
+            background: #222;
+            border-radius: 3px;
+            cursor: pointer;
+            z-index: 20;
+            box-shadow: 0 1px 1px #fff;
+        }
+
+        .schalter-hebel {
+            position: absolute;
+            left: 2px;
+            width: 10px;
+            height: 10px;
+            background: linear-gradient(#f0f0f0, #aaa);
+            border-radius: 2px;
+            box-shadow: 0 2px 3px #000;
+            transition: 0.1s;
+        }
+
+        .schalter[data-val="0"] .schalter-hebel { top: 12px; }
+        .schalter[data-val="1"] .schalter-hebel { top: 2px; }
+
+        /* ============================================================
+         * Taster (Drucktaste am Clock-Modul)
+         * ============================================================ */
+        .taster {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #bdc3c7;
+            border: 1px solid #7f8c8d;
+            box-shadow:
+                inset 1px 1px 2px #fff,
+                0 3px 0 #95a5a6,
+                0 4px 5px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            z-index: 20;
+            touch-action: none;
+        }
+
+        .taster:active {
+            transform: translateY(3px);
+            box-shadow:
+                inset 1px 1px 2px #fff,
+                0 0 0 #95a5a6,
+                0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ============================================================
+         * 7-Segment-Anzeige (HEX-Display)
+         * ============================================================ */
+        .hex-anzeige {
+            position: absolute;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            box-shadow: inset 0 0 6px #000;
+            z-index: 15;
+            overflow: hidden;
+            padding: 3px;
+            box-sizing: border-box;
+        }
+
+        .hex-anzeige svg { display: block; width: 100%; height: 100%; }
+
+        .segment { fill: #200808; transition: fill 0.08s; }
+        .segment.an { fill: #ff3b30; }
+        .hex-anzeige.aktiv {
+            box-shadow: inset 0 0 4px #000, 0 0 6px rgba(255, 59, 48, 0.15);
+        }
+
+        /* ============================================================
+         * Verdrahtung (Kabel & Stecker)
+         * ============================================================ */
+        #verdrahtungs-ebene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .kabel-pfad {
+            stroke-width: 4;
+            stroke-linecap: round;
+            fill: none;
+            pointer-events: none;
+            filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.4));
+        }
+
+        .kabel-pfad.fertig { pointer-events: auto; cursor: pointer; }
+        .kabel-pfad.fertig:hover { stroke-width: 6; stroke: #f39c12 !important; }
+
+        .kabel-stecker { fill: #333; stroke: #111; stroke-width: 1; pointer-events: none; }
+
+        /* ============================================================
+         * Signalvisualisierung (optional, per Toggle)
+         * ============================================================ */
+        .kabel-pfad.signal-high {
+            filter: drop-shadow(2px 4px 3px rgba(0,0,0,0.4))
+                    drop-shadow(0 0 5px currentColor);
+            opacity: 1;
+        }
+
+        .kabel-pfad.signal-low {
+            opacity: 0.35;
+            filter: none;
+        }
+
+        /* ============================================================
+         * Warnungsdialog (Kurzschluss-Modal)
+         * ============================================================ */
+        #warnung-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        #warnung-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 4px solid #e74c3c;
+            width: 400px;
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        #warnung-box h2 { color: #e74c3c; margin-top: 0; }
+
+        #warnung-schliessen {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* ============================================================
+         * Touch-Anpassungen (Tablets, Touchscreens)
+         * ============================================================ */
+        @media (pointer: coarse) {
+            .port {
+                width: 24px;
+                height: 24px;
+            }
+            .schalter {
+                width: 20px;
+                height: 30px;
+            }
+            .schalter-hebel {
+                width: 14px;
+                height: 13px;
+            }
+            .schalter[data-val="0"] .schalter-hebel { top: 15px; }
+            .schalter[data-val="1"] .schalter-hebel { top: 2px; }
+            .taster {
+                width: 26px;
+                height: 26px;
+            }
+        }
+
+        /* ============================================================
+         * Responsive Layout (kleine Fenster / Split-View)
+         * ============================================================ */
+        @media (max-width: 900px) {
+            .werkzeug-btn .btn-text { display: none; }
+            .werkzeug-btn { padding: 5px 8px; font-size: 14px; }
+        }
+
+        @media (max-width: 700px) {
+            #seitenleiste { margin-left: calc(-1 * var(--sidebar-breite)); }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Seitenleiste: Bauteile-Inventar und Regeln -->
+<div id="seitenleiste">
+    <div id="seitenleiste-kopf"><h2>Bauteile</h2></div>
+    <div id="inventar"></div>
+    <div id="regeln">
+        <strong>Regeln:</strong>
+        <ul>
+            <li>Offene Eingänge = <strong>HIGH ("1")</strong>.</li>
+            <li>Enable (E) und Reset (R) müssen an <strong>"0"</strong> verbunden werden!</li>
+            <li style="color: red;">Ausgänge NIEMALS miteinander verbinden!</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Arbeitsbereich: Werkzeugleiste und Steckbrett -->
+<div id="arbeitsbereich">
+    <button id="btn-seitenleiste-toggle" class="seitenleiste-toggle">«</button>
+    <div id="werkzeugleiste">
+        <button id="btn-modus-verdrahten" class="werkzeug-btn aktiv">🔗<span class="btn-text"> Verdrahten</span></button>
+        <button id="btn-modus-loeschen" class="werkzeug-btn">🧽<span class="btn-text"> Radierer</span></button>
+        <span class="toolbar-trenner"></span>
+        <button id="btn-signal-viz" class="werkzeug-btn">👁<span class="btn-text"> Signale</span></button>
+        <span class="toolbar-trenner"></span>
+        <button id="btn-exportieren" class="werkzeug-btn">💾<span class="btn-text"> Export</span></button>
+        <button id="btn-importieren" class="werkzeug-btn">📂<span class="btn-text"> Import</span></button>
+    </div>
+    <div id="brett-rahmen">
+        <div id="brett-gitter"></div>
+        <div id="modul-ebene">
+            <div id="zieh-geist" class="zieh-geist"></div>
+        </div>
+        <svg id="verdrahtungs-ebene"></svg>
+    </div>
+</div>
+
+<!-- Versteckter Datei-Input für JSON-Import -->
+<input type="file" id="datei-import" accept=".json" style="display: none;">
+
+<!-- Warnungsdialog: Kurzschlusswarnung -->
+<div id="warnung-overlay">
+    <div id="warnung-box">
+        <h2>⛔ DURCHGEFALLEN! ⛔</h2>
+        <p style="font-weight: bold;">Ausgang an Ausgang angeschlossen!</p>
+        <p>Das führt zu einem Kurzschluss. Das Modul ist durchgebrannt.</p>
+        <button id="warnung-schliessen">Ich habe verstanden</button>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+/**
+ * SIMULOG LS-TTL Simulator
+ *
+ * Digitaltechnik-Simulator für das SIMULOG LS-TTL System.
+ * Basiert auf der Hardware-Dokumentation "Anleitung SIMULOG LS-TTL"
+ * (Rechnerarchitektur – Praktikum Digitaltechnik, P. Hoffmann, 2026).
+ */
+(() => {
+
+    /* ================================================================
+     * [1] KONSTANTEN
+     * ================================================================ */
+
+    const PORT_X_LINKS = 12;
+    const PORT_X_RECHTS = 108;
+    const BRETT_SPALTEN = 6;
+    const BRETT_ZEILEN = 4;
+    const FELD_GROESSE = 120;
+    const FELD_ABSTAND = 2;
+    const FELD_SCHRITT = FELD_GROESSE + FELD_ABSTAND;
+    const SIM_INTERVALL_MS = 20;
+    const KABEL_FARBEN = ['var(--wire-red)', 'var(--wire-blue)'];
+    const AUTOSAVE_VERZOEGERUNG_MS = 800;
+    const SPEICHER_SCHLUESSEL = 'simulog-autosave';
+    const SPEICHER_VERSION = 1;
+
+    /* ================================================================
+     * [2] 7-SEGMENT-ANZEIGE KONFIGURATION
+     * ================================================================ */
+
+    const SEGMENT_PUNKTE = [
+        '4,1 20,1 18,4 6,4',
+        '20,2 23,5 22,17 19,19',
+        '19,20 22,22 21,34 18,37',
+        '6,34 18,34 20,37 4,37',
+        '1,37 4,34 5,22 2,20',
+        '2,19 5,17 6,4 3,1',
+        '5,18 19,18 21,19.5 19,21 5,21 3,19.5'
+    ];
+
+    const SEGMENT_TABELLE = [
+        [1,1,1,1,1,1,0],[0,1,1,0,0,0,0],[1,1,0,1,1,0,1],[1,1,1,1,0,0,1],
+        [0,1,1,0,0,1,1],[1,0,1,1,0,1,1],[1,0,1,1,1,1,1],[1,1,1,0,0,0,0],
+        [1,1,1,1,1,1,1],[1,1,1,1,0,1,1],[1,1,1,0,1,1,1],[0,0,1,1,1,1,1],
+        [1,0,0,1,1,1,0],[0,1,1,1,1,0,1],[1,0,0,1,1,1,1],[1,0,0,0,1,1,1]
+    ];
+
+    /* ================================================================
+     * [3] HILFSFUNKTIONEN
+     * ================================================================ */
+
+    /**
+     * Erstellt eine Modul-Definition für ein 4-fach Logikgatter.
+     * @param {string}  name    - Anzeigename
+     * @param {string}  symbol  - Logik-Symbol (z.B. '&amp;', '≥1')
+     * @param {boolean} negiert - Ausgang negiert (NAND, NOR)
+     * @returns {Object} Modul-Definition
+     */
+    function gatterDefinitionErstellen(name, symbol, negiert) {
+        let svg = '';
+        for (let g = 0; g < 4; g++) {
+            const y = 25 + g * 50;
+            const gx = 40;
+            svg += `<rect x="${gx}" y="${y}" width="30" height="35" class="logik-pfad"/>`;
+            svg += `<text x="${gx+15}" y="${y+18}" class="logik-text" text-anchor="middle">${symbol}</text>`;
+            svg += `<path d="M ${PORT_X_LINKS} ${y+7.5} L ${gx} ${y+7.5} M ${PORT_X_LINKS} ${y+27.5} L ${gx} ${y+27.5}" class="logik-pfad"/>`;
+            if (negiert) {
+                svg += `<circle cx="${gx+33}" cy="${y+17.5}" r="3" class="logik-pfad"/>`;
+                svg += `<path d="M ${gx+36} ${y+17.5} L ${PORT_X_RECHTS} ${y+17.5}" class="logik-pfad"/>`;
+            } else {
+                svg += `<path d="M ${gx+30} ${y+17.5} L ${PORT_X_RECHTS} ${y+17.5}" class="logik-pfad"/>`;
+            }
+        }
+        return {
+            name, limit: 2, svg,
+            ports: [0,1,2,3].flatMap(i => [
+                { id: 'A'+i, x: PORT_X_LINKS,  y: 32.5+i*50, type: 'in' },
+                { id: 'B'+i, x: PORT_X_LINKS,  y: 52.5+i*50, type: 'in' },
+                { id: 'Q'+i, x: PORT_X_RECHTS, y: 42.5+i*50, type: 'out' }
+            ]),
+            leds: [{ id: 'L0', x: 80, y: 42.5 }]
+        };
+    }
+
+    /** Erzeugt den HTML-String für eine 7-Segment-Anzeige. */
+    function siebenSegmentHTML(idPlatzhalter) {
+        const segs = SEGMENT_PUNKTE.map((p, i) =>
+            `<polygon id="${idPlatzhalter}_SEG_${i}" class="segment" points="${p}"/>`
+        ).join('');
+        return `<div class="hex-anzeige" id="${idPlatzhalter}_ANZEIGE" style="left:39px; top:68px; width:37px; height:52px;"><svg viewBox="0 0 24 38">${segs}</svg></div>`;
+    }
+
+    /** Zufällige Kabelfarbe (rot oder blau). */
+    function zufaelligeKabelfarbe() {
+        return KABEL_FARBEN[Math.floor(Math.random() * KABEL_FARBEN.length)];
+    }
+
+    /* ================================================================
+     * [4] MODUL-DEFINITIONEN
+     * ================================================================ */
+
+    const MODUL_DEFINITIONEN = {
+
+        'CLOCK': {
+            name: 'Adapter/Clock', limit: 1, hide: true,
+            svg: `
+                <rect x="40" y="45" width="35" height="55" class="logik-pfad"/>
+                <text x="57" y="72" class="logik-text" text-anchor="middle">≥1</text>
+                <path d="M ${PORT_X_LINKS} 55 L 20 55 M 35 55 L 40 55 M ${PORT_X_LINKS} 90 L 40 90 M 75 72.5 L ${PORT_X_RECHTS} 72.5" class="logik-pfad"/>
+                <rect x="40" y="115" width="35" height="90" class="logik-pfad"/>
+                <path d="M 45 150 L 45 140 L 52 140 L 52 150 L 59 150" class="logik-pfad"/>
+                <text x="73" y="125" class="logik-text" text-anchor="end" font-size="9">50:1</text>
+                <text x="73" y="160" class="logik-text" text-anchor="end" font-size="9">2:1</text>
+                <text x="73" y="195" class="logik-text" text-anchor="end" font-size="9">60:1</text>
+                <text x="43" y="195" class="logik-text" text-anchor="start" font-size="9">R</text>
+                <path d="M ${PORT_X_LINKS} 195 L 40 195 M 75 130 L ${PORT_X_RECHTS} 130 M 75 165 L ${PORT_X_RECHTS} 165 M 75 200 L ${PORT_X_RECHTS} 200" class="logik-pfad"/>
+            `,
+            ports: [
+                { id: 'L_DUMMY1', x: PORT_X_LINKS, y: 20, type: 'in' },
+                { id: 'L_BTN', x: PORT_X_LINKS, y: 55, type: 'in' },
+                { id: 'L_OR', x: PORT_X_LINKS, y: 90, type: 'in' },
+                { id: '0', x: PORT_X_LINKS, y: 130, type: 'out', lbl: '0', align: 'right' },
+                { id: 'L_DUMMY2', x: PORT_X_LINKS, y: 165, type: 'in' },
+                { id: 'R', x: PORT_X_LINKS, y: 195, type: 'in' },
+                { id: 'OR_OUT', x: PORT_X_RECHTS, y: 72.5, type: 'out' },
+                { id: 'C50_O', x: PORT_X_RECHTS, y: 130, type: 'out' },
+                { id: 'C2', x: PORT_X_RECHTS, y: 165, type: 'out' },
+                { id: 'C60', x: PORT_X_RECHTS, y: 200, type: 'out' }
+            ],
+            leds: [{ id: 'LED_OR', x: 80, y: 72.5 }, { id: 'LED_50', x: 80, y: 130 }],
+            html: `<div class="taster" id="##ID##_BTN" style="left:17px; top:45px;"></div>`
+        },
+
+        'IN4': {
+            name: '4-Bit Input', limit: 2,
+            svg: [0,1,2,3].map(i => `<path d="M 30 ${35+i*45} L ${PORT_X_RECHTS} ${35+i*45}" class="logik-pfad"/>`).join(''),
+            ports: [0,1,2,3].map(i => ({ id: 'O'+i, x: PORT_X_RECHTS, y: 35+i*45, type: 'out' })),
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 75, y: 35+i*45 })),
+            html: [0,1,2,3].map(i => `<div class="schalter" id="##ID##_SW${i}" data-val="0" style="left:25px; top:${23+i*45}px;"><div class="schalter-hebel"></div></div>`).join('')
+        },
+
+        'OUT4': {
+            name: '4-Bit Output', limit: 1,
+            svg: `<path d="M 40 15 L 50 15 L 50 190" class="logik-pfad"/>` +
+                [0,1,2,3].map(i => { const y = 55+i*45; return `<polygon points="35,${y-15} 65,${y} 35,${y+15}" class="logik-pfad" fill="var(--module-bg)"/><circle cx="50" cy="${y-7.5}" r="3" class="logik-pfad" fill="var(--module-bg)"/><path d="M ${PORT_X_LINKS} ${y} L 35 ${y} M 65 ${y} L ${PORT_X_RECHTS} ${y}" class="logik-pfad"/>`; }).join(''),
+            ports: [
+                { id: 'EN', x: 40, y: 15, type: 'in' },
+                { id: '0_TOP', x: 75, y: 15, type: 'out', lbl: '0', align: 'right' },
+                { id: '0_BOT', x: PORT_X_LINKS, y: 220, type: 'out', lbl: '0', align: 'right' },
+                ...[0,1,2,3].flatMap(i => [
+                    { id: 'I'+i, x: PORT_X_LINKS, y: 55+i*45, type: 'in' },
+                    { id: 'O'+i, x: PORT_X_RECHTS, y: 55+i*45, type: 'out' }
+                ])
+            ],
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 80, y: 55+i*45 }))
+        },
+
+        'AND4':  gatterDefinitionErstellen('4 AND',  '&amp;', false),
+        'NAND4': gatterDefinitionErstellen('4 NAND', '&amp;', true),
+        'OR4':   gatterDefinitionErstellen('4 OR',   '≥1', false),
+        'NOR4':  gatterDefinitionErstellen('4 NOR',  '≥1', true),
+
+        'INV4': {
+            name: '4 Inverter', limit: 1,
+            svg: [0,1,2,3].map(i => { const y = 42.5+i*50; return `<rect x="40" y="${25+i*50}" width="30" height="35" class="logik-pfad"/><text x="55" y="${43+i*50}" class="logik-text" text-anchor="middle">1</text><circle cx="73" cy="${y}" r="3" class="logik-pfad"/><path d="M ${PORT_X_LINKS} ${y} L 40 ${y} M 76 ${y} L ${PORT_X_RECHTS} ${y}" class="logik-pfad"/>`; }).join(''),
+            ports: [0,1,2,3].flatMap(i => [
+                { id: 'A'+i, x: PORT_X_LINKS, y: 42.5+i*50, type: 'in' },
+                { id: 'Q'+i, x: PORT_X_RECHTS, y: 42.5+i*50, type: 'out' }
+            ]),
+            leds: [{ id: 'L0', x: 80, y: 42.5 }]
+        },
+
+        'MUX': {
+            name: '4 Multiplexer', limit: 1,
+            svg: `<path d="M 28 26 L 40 26 L 40 210" class="logik-pfad"/>` +
+                [0,1,2,3].map(i => `<rect x="40" y="${35+i*45}" width="30" height="35" class="logik-pfad"/><text x="45" y="${48+i*45}" class="logik-text" font-size="9">A</text><text x="45" y="${65+i*45}" class="logik-text" font-size="9">B</text><path d="M ${PORT_X_LINKS} ${40+i*45} L 40 ${40+i*45} M ${PORT_X_LINKS} ${60+i*45} L 40 ${60+i*45} M 70 ${50+i*45} L ${PORT_X_RECHTS} ${50+i*45}" class="logik-pfad"/>`).join(''),
+            ports: [
+                { id: 'S', x: 23, y: 15, type: 'in', lbl: 'EaEb', align: 'top', offset: -5 },
+                { id: '0', x: 85, y: 15, type: 'out', lbl: '0', align: 'top' },
+                ...[0,1,2,3].flatMap(i => [
+                    { id: 'A'+i, x: PORT_X_LINKS, y: 40+i*45, type: 'in' },
+                    { id: 'B'+i, x: PORT_X_LINKS, y: 60+i*45, type: 'in' },
+                    { id: 'Q'+i, x: PORT_X_RECHTS, y: 50+i*45, type: 'out' }
+                ])
+            ],
+            leds: []
+        },
+
+        'HEX': {
+            name: 'LED-Display', limit: 1,
+            svg: `<rect x="35" y="10" width="45" height="195" class="logik-pfad"/>`,
+            ports: [
+                { id: 'E', x: 23, y: 15, type: 'in', lbl: 'E', align: 'top' },
+                { id: '0', x: 85, y: 15, type: 'out', lbl: '0', align: 'top' },
+                { id: 'I0', x: PORT_X_LINKS, y: 60, type: 'in', lbl: '2⁰', align: 'right' },
+                { id: 'I1', x: PORT_X_LINKS, y: 90, type: 'in', lbl: '2¹', align: 'right' },
+                { id: 'I2', x: PORT_X_LINKS, y: 120, type: 'in', lbl: '2²', align: 'right' },
+                { id: 'I3', x: PORT_X_LINKS, y: 150, type: 'in', lbl: '2³', align: 'right' },
+                { id: 'RBI', x: PORT_X_LINKS, y: 195, type: 'in', lbl: 'RBI', align: 'right' },
+                { id: 'RBO', x: PORT_X_RECHTS, y: 195, type: 'out', lbl: 'RBO', align: 'left' }
+            ],
+            leds: [],
+            html: siebenSegmentHTML('##ID##')
+        },
+
+        'ADD': {
+            name: '1 Volladdierer', limit: 1,
+            svg: `<rect x="35" y="15" width="45" height="140" class="logik-pfad"/><text x="57" y="48" class="logik-text" font-size="20" text-anchor="middle">∑</text><path d="M ${PORT_X_LINKS} 30 L 35 30 M ${PORT_X_LINKS} 80 L 35 80 M ${PORT_X_LINKS} 130 L 35 130 M 80 30 L ${PORT_X_RECHTS} 30 M 80 80 L ${PORT_X_RECHTS} 80" class="logik-pfad"/>`,
+            ports: [
+                { id: 'Cin', x: PORT_X_LINKS, y: 30, type: 'in', lbl: 'Cin', align: 'right' },
+                { id: 'A', x: PORT_X_LINKS, y: 80, type: 'in', lbl: 'A', align: 'right' },
+                { id: 'B', x: PORT_X_LINKS, y: 130, type: 'in', lbl: 'B', align: 'right' },
+                { id: 'Cout', x: PORT_X_RECHTS, y: 30, type: 'out', lbl: 'Cout', align: 'left' },
+                { id: 'S', x: PORT_X_RECHTS, y: 80, type: 'out', lbl: 'S', align: 'left' }
+            ],
+            leds: [{ id: 'L_C', x: 80, y: 30 }, { id: 'L_S', x: 80, y: 80 }]
+        },
+
+        'JK': {
+            name: '2 JK-Flipflop', limit: 2,
+            svg: [0,1].map(i => { const y = 25+i*100; return `<rect x="40" y="${y}" width="35" height="70" class="logik-pfad"/><circle cx="46" cy="${y}" r="2" class="logik-pfad"/><circle cx="46" cy="${y+70}" r="2" class="logik-pfad"/><text x="45" y="${y+13}" class="logik-text" font-size="9">S</text><text x="45" y="${y+65}" class="logik-text" font-size="9">R</text><path d="M ${PORT_X_LINKS} ${y+15} L 40 ${y+15} M ${PORT_X_LINKS} ${y+35} L 40 ${y+35} M ${PORT_X_LINKS} ${y+55} L 40 ${y+55} M 75 ${y+15} L ${PORT_X_RECHTS} ${y+15} M 75 ${y+55} L ${PORT_X_RECHTS} ${y+55}" class="logik-pfad"/><polygon points="40,${y+30} 45,${y+35} 40,${y+40}" fill="none" stroke="#000"/><circle cx="38" cy="${y+35}" r="2" class="logik-pfad"/><circle cx="77" cy="${y+55}" r="2" class="logik-pfad"/>`; }).join(''),
+            ports: [0,1].flatMap(i => {
+                const y = 20+i*100;
+                return [
+                    { id: 'S'+i, x: 40, y: y-10, type: 'in', lbl: 'S', align: 'right' },
+                    { id: 'J'+i, x: PORT_X_LINKS, y: y+20, type: 'in', lbl: 'J', align: 'right' },
+                    { id: 'C'+i, x: PORT_X_LINKS, y: y+40, type: 'in' },
+                    { id: 'K'+i, x: PORT_X_LINKS, y: y+60, type: 'in', lbl: 'K', align: 'right' },
+                    { id: 'R'+i, x: 40, y: y+80, type: 'in', lbl: 'R', align: 'right' },
+                    { id: 'Q'+i, x: PORT_X_RECHTS, y: y+20, type: 'out', lbl: 'Q', align: 'left' },
+                    { id: 'nQ'+i, x: PORT_X_RECHTS, y: y+60, type: 'out', lbl: '!Q', align: 'left' }
+                ];
+            }),
+            leds: [{ id: 'L0', x: 80, y: 40 }, { id: 'L1', x: 80, y: 140 }]
+        },
+
+        'SR4': {
+            name: '4-Bit-Schieb.', limit: 1,
+            svg: `<rect x="40" y="10" width="35" height="60" class="logik-pfad"/><path d="M ${PORT_X_LINKS} 20 L 40 20 M ${PORT_X_LINKS} 40 L 40 40 M ${PORT_X_LINKS} 60 L 40 60" class="logik-pfad"/><polygon points="40,15 45,20 40,25" fill="none" stroke="#000"/><circle cx="38" cy="40" r="2" class="logik-pfad"/>` +
+                [0,1,2,3].map(i => `<rect x="40" y="${80+i*30}" width="35" height="25" class="logik-pfad"/><path d="M ${PORT_X_LINKS} ${92.5+i*30} L 40 ${92.5+i*30} M 75 ${92.5+i*30} L ${PORT_X_RECHTS} ${92.5+i*30}" class="logik-pfad"/>`).join('') +
+                `<circle cx="42" cy="198" r="2" class="logik-pfad"/><path d="M 40 215 L 40 200" class="logik-pfad"/>`,
+            ports: [
+                { id: 'CLK', x: PORT_X_LINKS, y: 20, type: 'in', lbl: 'Takt', align: 'right' },
+                { id: 'LD', x: PORT_X_LINKS, y: 40, type: 'in', lbl: 'Load', align: 'right' },
+                { id: 'SI', x: PORT_X_LINKS, y: 60, type: 'in', lbl: 'SI', align: 'right' },
+                ...[0,1,2,3].flatMap(i => [
+                    { id: 'P'+i, x: PORT_X_LINKS, y: 92.5+i*30, type: 'in', lbl: 'P'+i, align: 'right' },
+                    { id: 'Q'+i, x: PORT_X_RECHTS, y: 92.5+i*30, type: 'out', lbl: 'Q'+i, align: 'left' }
+                ]),
+                { id: 'R', x: 40, y: 215, type: 'in', lbl: 'R', align: 'right' }
+            ],
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 80, y: 92.5+i*30 }))
+        }
+    };
+
+    /* ================================================================
+     * [5] ANWENDUNGSZUSTAND
+     * ================================================================ */
+
+    const zustand = {
+        modulZaehler: (() => { const z = {}; Object.keys(MODUL_DEFINITIONEN).forEach(t => z[t] = 0); return z; })(),
+        instanzen: {},
+        verbindungen: [],
+        naechsteModulId: 1,
+        naechsteVerbindungId: 1,
+        ausgewaehlterPort: null,
+        vorschauFarbe: null,
+        knotenWerte: {},
+        taktZaehler: 0,
+        aktuellerModus: 'verdrahten',
+        ziehTyp: null,
+        brettBelegt: Array.from({ length: BRETT_ZEILEN }, () => Array(BRETT_SPALTEN).fill(null)),
+        temporaereVerbindung: null,
+        /** CSS-Skalierungsfaktor des Bretts (1.0 = 100%). */
+        skalierung: 1.0,
+        /** Ob Signalvisualisierung aktiv ist. */
+        signalVisualisierung: false,
+        /** Timer-ID für Auto-Save Debouncing. */
+        autoSpeicherTimer: null,
+        /** Modultyp, der per Tap platziert werden soll (Touch-Modus). */
+        ausgewaehlterModulTyp: null
+    };
+
+    /** Puffer für Zweiphasen-Simulation (null = direkt schreiben). */
+    let ausgangsPuffer = null;
+
+    /* ================================================================
+     * [6] DOM-REFERENZEN
+     * ================================================================ */
+
+    let domBrettGitter, domModulEbene, domVerdrahtungsEbene, domInventar, domZielGeist;
+
+    /* ================================================================
+     * [7] INITIALISIERUNG
+     * ================================================================ */
+
+    function initialisieren() {
+        domBrettGitter       = document.getElementById('brett-gitter');
+        domModulEbene        = document.getElementById('modul-ebene');
+        domVerdrahtungsEbene = document.getElementById('verdrahtungs-ebene');
+        domInventar          = document.getElementById('inventar');
+        domZielGeist         = document.getElementById('zieh-geist');
+
+        brettAufbauen();
+        modulErstellen('CLOCK', 0, 0, true);
+        inventarAktualisieren();
+        eventListenerRegistrieren();
+
+        // Auto-Skalierung: sofort und bei Größenänderung
+        brettSkalieren();
+        new ResizeObserver(() => brettSkalieren()).observe(
+            document.getElementById('arbeitsbereich')
+        );
+
+        // Auto-Save aus localStorage wiederherstellen
+        try {
+            const gespeichert = localStorage.getItem(SPEICHER_SCHLUESSEL);
+            if (gespeichert) {
+                const daten = JSON.parse(gespeichert);
+                if (daten && daten.version === SPEICHER_VERSION) {
+                    schaltungLaden(daten);
+                }
+            }
+        } catch (e) {
+            console.warn('Autosave konnte nicht geladen werden:', e);
+        }
+
+        setInterval(simulationsSchritt, SIM_INTERVALL_MS);
+    }
+
+    function brettAufbauen() {
+        const bohrungsMuster = [
+            { x: 12, y: 12, aktiv: true }, { x: 60, y: 12, aktiv: false }, { x: 108, y: 12, aktiv: true },
+            { x: 12, y: 60, aktiv: false }, { x: 60, y: 60, aktiv: false }, { x: 108, y: 60, aktiv: true },
+            { x: 12, y: 108, aktiv: true }, { x: 60, y: 108, aktiv: true }, { x: 108, y: 108, aktiv: true }
+        ];
+        for (let i = 0; i < BRETT_SPALTEN * BRETT_ZEILEN; i++) {
+            const feld = document.createElement('div');
+            feld.className = 'brett-feld';
+            bohrungsMuster.filter(b => b.aktiv).forEach(b => {
+                const bohrung = document.createElement('div');
+                bohrung.className = 'brett-bohrung';
+                bohrung.style.left = b.x + 'px';
+                bohrung.style.top = b.y + 'px';
+                feld.appendChild(bohrung);
+            });
+            domBrettGitter.appendChild(feld);
+        }
+    }
+
+    function eventListenerRegistrieren() {
+        const brettRahmen = document.getElementById('brett-rahmen');
+
+        // Werkzeugleiste
+        document.getElementById('btn-modus-verdrahten').addEventListener('click', () => modusWechseln('verdrahten'));
+        document.getElementById('btn-modus-loeschen').addEventListener('click', () => modusWechseln('loeschen'));
+        document.getElementById('btn-signal-viz').addEventListener('click', signalVisualisierungUmschalten);
+        document.getElementById('btn-exportieren').addEventListener('click', schaltungExportieren);
+        document.getElementById('btn-importieren').addEventListener('click', () => document.getElementById('datei-import').click());
+        document.getElementById('datei-import').addEventListener('change', dateiImportVerarbeiten);
+
+        // Seitenleiste Toggle
+        document.getElementById('btn-seitenleiste-toggle').addEventListener('click', seitenleistUmschalten);
+
+        // Drag & Drop (Desktop)
+        brettRahmen.addEventListener('dragover', dragUeberBrett);
+        brettRahmen.addEventListener('dragleave', () => domZielGeist.style.display = 'none');
+        brettRahmen.addEventListener('drop', dropAufBrett);
+
+        // Tap-to-Place: Klick auf Brett-Gitter platziert ausgewähltes Modul
+        domBrettGitter.addEventListener('click', klickAufBrett);
+
+        // Touch-Drag auf Brett für Modul-Platzierung aus Inventar
+        brettRahmen.addEventListener('touchmove', touchUeberBrett, { passive: false });
+        brettRahmen.addEventListener('touchend', touchDropAufBrett);
+
+        // Verdrahtungsvorschau (Mausbewegung)
+        document.addEventListener('mousemove', verdrahtungsVorschauAktualisieren);
+
+        // Warnungsdialog
+        document.getElementById('warnung-schliessen').addEventListener('click', () => {
+            document.getElementById('warnung-overlay').style.display = 'none';
+        });
+    }
+
+    /* ================================================================
+     * [8] MODUSWECHSEL
+     * ================================================================ */
+
+    function modusWechseln(modus) {
+        zustand.aktuellerModus = modus;
+        document.getElementById('btn-modus-verdrahten').classList.toggle('aktiv', modus === 'verdrahten');
+        document.getElementById('btn-modus-loeschen').classList.toggle('aktiv', modus === 'loeschen');
+        document.body.classList.toggle('modus-loeschen', modus === 'loeschen');
+        if (zustand.ausgewaehlterPort) {
+            zustand.ausgewaehlterPort.classList.remove('ausgewaehlt');
+            zustand.ausgewaehlterPort = null;
+            if (zustand.temporaereVerbindung) { zustand.temporaereVerbindung.remove(); zustand.temporaereVerbindung = null; }
+        }
+    }
+
+    /* ================================================================
+     * [9] SVG-KOMPILIERUNG
+     * ================================================================ */
+
+    function kompiliertesSVG(typ) {
+        const def = MODUL_DEFINITIONEN[typ];
+        let svg = def.svg;
+        def.ports.forEach(port => {
+            svg += `<circle cx="${port.x}" cy="${port.y}" r="5" class="port-hintergrund"/>`;
+            if (port.lbl) {
+                let tx, anker, ty;
+                if (port.align === 'right') { tx = port.x + 12; anker = 'start'; }
+                else if (port.align === 'left') { tx = port.x - 12; anker = 'end'; }
+                else { tx = port.x + (port.offset || 0); anker = 'middle'; }
+                ty = (port.align === 'top') ? port.y - 12 : port.y + 1;
+                svg += `<text x="${tx}" y="${ty}" class="logik-text" text-anchor="${anker}">${port.lbl}</text>`;
+            }
+        });
+        svg += `<text x="60" y="230" class="logik-text" text-anchor="middle" font-size="10" fill="#333">${def.name.toUpperCase()}</text>`;
+        return svg;
+    }
+
+    /* ================================================================
+     * [10] INVENTAR
+     * ================================================================ */
+
+    function inventarAktualisieren() {
+        domInventar.innerHTML = '';
+        for (const typ in MODUL_DEFINITIONEN) {
+            const def = MODUL_DEFINITIONEN[typ];
+            if (def.hide) continue;
+            const rest = def.limit - zustand.modulZaehler[typ];
+            const istLeer = rest === 0;
+            const istAusgewaehlt = (zustand.ausgewaehlterModulTyp === typ);
+
+            const eintrag = document.createElement('div');
+            eintrag.className = `inventar-eintrag${istLeer ? ' leer' : ''}${istAusgewaehlt ? ' ausgewaehlt' : ''}`;
+            eintrag.draggable = !istLeer;
+            eintrag.innerHTML = `
+                <div class="mini-karten-rahmen">
+                    <svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(typ)}</svg>
+                </div>
+                <div class="inventar-info">
+                    <span class="inventar-name">${def.name}</span>
+                    <span class="inventar-anzahl">${rest} verfügbar</span>
+                </div>
+            `;
+
+            if (!istLeer) {
+                // Desktop: Drag & Drop
+                eintrag.addEventListener('dragstart', (e) => {
+                    zustand.ziehTyp = typ;
+                    zustand.ausgewaehlterModulTyp = null;
+                    e.dataTransfer.setData('text/plain', typ);
+                });
+                // Touch & Klick: Tap-to-Place Auswahl
+                eintrag.addEventListener('click', (e) => {
+                    if (e.detail === 0) return; // Ignore synthetic clicks from drag
+                    zustand.ausgewaehlterModulTyp = (zustand.ausgewaehlterModulTyp === typ) ? null : typ;
+                    inventarAktualisieren();
+                });
+                // Touch: merke den Typ für Touch-Drag
+                eintrag.addEventListener('touchstart', (e) => {
+                    zustand.ziehTyp = typ;
+                }, { passive: true });
+            }
+            domInventar.appendChild(eintrag);
+        }
+    }
+
+    /* ================================================================
+     * [11] RESPONSIVE SKALIERUNG
+     * ================================================================ */
+
+    /** Skaliert das Brett passend zum verfügbaren Platz. */
+    function brettSkalieren() {
+        const bereich = document.getElementById('arbeitsbereich');
+        const rahmen = document.getElementById('brett-rahmen');
+        const polster = 40;
+        const werkzeugHoehe = 55;
+        const brettBreite = rahmen.offsetWidth;
+        const brettHoehe = rahmen.offsetHeight;
+
+        if (brettBreite === 0 || brettHoehe === 0) return;
+
+        const verfuegbar_x = bereich.clientWidth - polster;
+        const verfuegbar_y = bereich.clientHeight - polster - werkzeugHoehe;
+
+        const sk = Math.max(0.25, Math.min(1.0,
+            verfuegbar_x / brettBreite,
+            verfuegbar_y / brettHoehe
+        ));
+
+        zustand.skalierung = sk;
+        rahmen.style.transform = `scale(${sk})`;
+    }
+
+    /* ================================================================
+     * [12] SEITENLEISTE TOGGLE
+     * ================================================================ */
+
+    function seitenleistUmschalten() {
+        const leiste = document.getElementById('seitenleiste');
+        const btn = document.getElementById('btn-seitenleiste-toggle');
+        leiste.classList.toggle('eingeklappt');
+        btn.textContent = leiste.classList.contains('eingeklappt') ? '»' : '«';
+        setTimeout(brettSkalieren, 320);
+    }
+
+    /* ================================================================
+     * [13] DRAG & DROP + TAP-TO-PLACE
+     * ================================================================ */
+
+    /**
+     * Berechnet Brett-Koordinaten aus Bildschirmposition.
+     * Berücksichtigt CSS-Skalierung.
+     */
+    function brettKoordinaten(clientX, clientY) {
+        const rect = domBrettGitter.getBoundingClientRect();
+        const sk = zustand.skalierung;
+        return {
+            spalte: Math.max(0, Math.min(BRETT_SPALTEN - 1, Math.floor((clientX - rect.left) / (FELD_SCHRITT * sk)))),
+            zeile:  Math.max(0, Math.min(BRETT_ZEILEN - 2,  Math.floor((clientY - rect.top)  / (FELD_SCHRITT * sk))))
+        };
+    }
+
+    function dragUeberBrett(e) {
+        e.preventDefault();
+        if (!zustand.ziehTyp) return;
+        const pos = brettKoordinaten(e.clientX, e.clientY);
+        domZielGeist.style.left = (pos.spalte * FELD_SCHRITT + 4) + 'px';
+        domZielGeist.style.top  = (pos.zeile  * FELD_SCHRITT + 4) + 'px';
+        domZielGeist.style.display = 'block';
+    }
+
+    function dropAufBrett(e) {
+        e.preventDefault();
+        domZielGeist.style.display = 'none';
+        if (!zustand.ziehTyp) return;
+        const pos = brettKoordinaten(e.clientX, e.clientY);
+        if (zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1][pos.spalte]) return;
+        modulErstellen(zustand.ziehTyp, pos.spalte, pos.zeile);
+        zustand.ziehTyp = null;
+    }
+
+    /** Tap-to-Place: Klick auf ein Brett-Feld platziert das ausgewählte Modul. */
+    function klickAufBrett(e) {
+        if (!zustand.ausgewaehlterModulTyp) return;
+        const pos = brettKoordinaten(e.clientX, e.clientY);
+        if (zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1][pos.spalte]) return;
+        modulErstellen(zustand.ausgewaehlterModulTyp, pos.spalte, pos.zeile);
+        zustand.ausgewaehlterModulTyp = null;
+        inventarAktualisieren();
+    }
+
+    /** Touch-Drag: Geist folgt dem Finger über dem Brett. */
+    function touchUeberBrett(e) {
+        if (!zustand.ziehTyp) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const pos = brettKoordinaten(touch.clientX, touch.clientY);
+        domZielGeist.style.left = (pos.spalte * FELD_SCHRITT + 4) + 'px';
+        domZielGeist.style.top  = (pos.zeile  * FELD_SCHRITT + 4) + 'px';
+        domZielGeist.style.display = 'block';
+    }
+
+    /** Touch-Drop: Modul platzieren wenn Finger losgelassen wird. */
+    function touchDropAufBrett(e) {
+        domZielGeist.style.display = 'none';
+        if (!zustand.ziehTyp) return;
+        if (e.changedTouches.length === 0) return;
+        const touch = e.changedTouches[0];
+        const pos = brettKoordinaten(touch.clientX, touch.clientY);
+        if (zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1][pos.spalte]) {
+            zustand.ziehTyp = null;
+            return;
+        }
+        modulErstellen(zustand.ziehTyp, pos.spalte, pos.zeile);
+        zustand.ziehTyp = null;
+    }
+
+    /* ================================================================
+     * [14] MODUL-VERWALTUNG
+     * ================================================================ */
+
+    function modulErstellen(typ, spalte, zeile, fixiert = false) {
+        const def = MODUL_DEFINITIONEN[typ];
+        if (!fixiert) {
+            if (zustand.modulZaehler[typ] >= def.limit) return;
+            zustand.modulZaehler[typ]++;
+            inventarAktualisieren();
+        }
+
+        zustand.brettBelegt[zeile][spalte] = true;
+        zustand.brettBelegt[zeile + 1][spalte] = true;
+
+        const modulId = 'M' + zustand.naechsteModulId++;
+        const modulEl = document.createElement('div');
+        modulEl.className = 'modul';
+        modulEl.id = modulId;
+        if (fixiert) modulEl.classList.add('fixiert');
+        modulEl.style.left = (spalte * FELD_SCHRITT) + 'px';
+        modulEl.style.top  = (zeile  * FELD_SCHRITT) + 'px';
+
+        let html = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(typ)}</svg>`;
+        def.ports.forEach(p => {
+            html += `<div class="port" id="${modulId}_${p.id}" data-type="${p.type}" style="left:${p.x}px; top:${p.y}px;"></div>`;
+            zustand.knotenWerte[`${modulId}_${p.id}`] = (p.type === 'out') ? 0 : 1;
+        });
+        def.leds.forEach(l => { html += `<div class="led" id="${modulId}_${l.id}" style="left:${l.x}px; top:${l.y}px;"></div>`; });
+        if (def.html) html += def.html.replace(/##ID##/g, modulId);
+
+        modulEl.innerHTML = html;
+        domModulEbene.appendChild(modulEl);
+
+        const instanz = {
+            id: modulId, typ, el: modulEl,
+            zustand: { ffZustand: [0,0], registerWerte: [0,0,0,0], vorTakt: [1,1] }
+        };
+        zustand.instanzen[modulId] = instanz;
+
+        // Port-Klicks
+        modulEl.querySelectorAll('.port').forEach(p => {
+            p.addEventListener('click', (e) => { e.stopPropagation(); portKlick(p); });
+        });
+
+        // Schalter
+        modulEl.querySelectorAll('.schalter').forEach(sw => {
+            sw.addEventListener('click', () => {
+                const v = sw.dataset.val === '0' ? 1 : 0;
+                sw.dataset.val = v;
+                instanz.zustand[sw.id] = v;
+                automatischSpeichern();
+            });
+        });
+
+        // Taster (Mouse + Touch)
+        const taster = modulEl.querySelector('.taster');
+        if (taster) {
+            const druecken = () => instanz.zustand.tasterGedrueckt = 1;
+            const loslassen = () => instanz.zustand.tasterGedrueckt = 0;
+            taster.addEventListener('mousedown', druecken);
+            taster.addEventListener('mouseup', loslassen);
+            taster.addEventListener('mouseleave', loslassen);
+            taster.addEventListener('touchstart', (e) => { e.preventDefault(); druecken(); });
+            taster.addEventListener('touchend', loslassen);
+            taster.addEventListener('touchcancel', loslassen);
+        }
+
+        if (!fixiert) {
+            modulEl.addEventListener('click', (e) => {
+                if (zustand.aktuellerModus === 'loeschen') { e.stopPropagation(); modulEntfernen(modulId); }
+            });
+            modulVerschiebbarMachen(modulEl, modulId);
+            automatischSpeichern();
+        }
+    }
+
+    function modulVerschiebbarMachen(modulEl, modulId) {
+        const startVerschiebung = (startX, startY) => {
+            if (zustand.aktuellerModus === 'loeschen') return null;
+            const startSpalte = Math.round(parseInt(modulEl.style.left) / FELD_SCHRITT);
+            const startZeile  = Math.round(parseInt(modulEl.style.top)  / FELD_SCHRITT);
+            return { startSpalte, startZeile };
+        };
+
+        const endeVerschiebung = (endClientX, endClientY, start) => {
+            if (!start) return;
+            modulEl.style.pointerEvents = 'auto';
+            const pos = brettKoordinaten(endClientX, endClientY);
+
+            zustand.brettBelegt[start.startZeile][start.startSpalte] = false;
+            zustand.brettBelegt[start.startZeile + 1][start.startSpalte] = false;
+
+            if (!zustand.brettBelegt[pos.zeile][pos.spalte] && !zustand.brettBelegt[pos.zeile + 1][pos.spalte]) {
+                zustand.brettBelegt[pos.zeile][pos.spalte] = true;
+                zustand.brettBelegt[pos.zeile + 1][pos.spalte] = true;
+                modulEl.style.left = (pos.spalte * FELD_SCHRITT) + 'px';
+                modulEl.style.top  = (pos.zeile  * FELD_SCHRITT) + 'px';
+            } else {
+                zustand.brettBelegt[start.startZeile][start.startSpalte] = true;
+                zustand.brettBelegt[start.startZeile + 1][start.startSpalte] = true;
+                modulEl.style.left = (start.startSpalte * FELD_SCHRITT) + 'px';
+                modulEl.style.top  = (start.startZeile  * FELD_SCHRITT) + 'px';
+            }
+            verbindungenNeuzeichnen();
+            automatischSpeichern();
+        };
+
+        // Mouse
+        modulEl.addEventListener('mousedown', (e) => {
+            const z = e.target.classList;
+            if (z.contains('port') || z.contains('schalter') || z.contains('taster')) return;
+            const start = startVerschiebung(e.clientX, e.clientY);
+            if (!start) return;
+            const onMove = () => modulEl.style.pointerEvents = 'none';
+            const onUp = (ev) => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                endeVerschiebung(ev.clientX, ev.clientY, start);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+
+        // Touch
+        modulEl.addEventListener('touchstart', (e) => {
+            const z = e.target.classList;
+            if (z.contains('port') || z.contains('schalter') || z.contains('taster')) return;
+            const start = startVerschiebung(0, 0);
+            if (!start) return;
+            e.preventDefault();
+            const onEnd = (ev) => {
+                modulEl.removeEventListener('touchend', onEnd);
+                modulEl.removeEventListener('touchcancel', onEnd);
+                if (ev.changedTouches.length > 0) {
+                    const t = ev.changedTouches[0];
+                    endeVerschiebung(t.clientX, t.clientY, start);
+                }
+            };
+            modulEl.addEventListener('touchend', onEnd);
+            modulEl.addEventListener('touchcancel', onEnd);
+        }, { passive: false });
+    }
+
+    function modulEntfernen(modulId) {
+        const instanz = zustand.instanzen[modulId];
+        if (!instanz || instanz.typ === 'CLOCK') return;
+
+        const praefix = modulId + '_';
+        zustand.verbindungen = zustand.verbindungen.filter(v => {
+            if (v.port1.startsWith(praefix) || v.port2.startsWith(praefix)) {
+                v.domGruppe.remove();
+                return false;
+            }
+            return true;
+        });
+
+        const spalte = Math.round(parseInt(instanz.el.style.left) / FELD_SCHRITT);
+        const zeile  = Math.round(parseInt(instanz.el.style.top)  / FELD_SCHRITT);
+        zustand.brettBelegt[zeile][spalte] = false;
+        zustand.brettBelegt[zeile + 1][spalte] = false;
+
+        zustand.modulZaehler[instanz.typ]--;
+        inventarAktualisieren();
+        instanz.el.remove();
+        delete zustand.instanzen[modulId];
+        automatischSpeichern();
+    }
+
+    /* ================================================================
+     * [15] VERDRAHTUNG
+     * ================================================================ */
+
+    function portKlick(portEl) {
+        if (zustand.aktuellerModus === 'loeschen') return;
+
+        if (!zustand.ausgewaehlterPort) {
+            zustand.ausgewaehlterPort = portEl;
+            portEl.classList.add('ausgewaehlt');
+            zustand.vorschauFarbe = zufaelligeKabelfarbe();
+            zustand.temporaereVerbindung = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            zustand.temporaereVerbindung.setAttribute('class', 'kabel-pfad');
+            zustand.temporaereVerbindung.setAttribute('stroke', zustand.vorschauFarbe);
+            domVerdrahtungsEbene.appendChild(zustand.temporaereVerbindung);
+        } else {
+            const port1 = zustand.ausgewaehlterPort;
+            const port2 = portEl;
+            port1.classList.remove('ausgewaehlt');
+            zustand.ausgewaehlterPort = null;
+            if (zustand.temporaereVerbindung) { zustand.temporaereVerbindung.remove(); zustand.temporaereVerbindung = null; }
+
+            if (port1 === port2 || port1.dataset.type === port2.dataset.type) {
+                if (port1.dataset.type === 'out' && port2.dataset.type === 'out' && port1 !== port2) {
+                    document.getElementById('warnung-overlay').style.display = 'flex';
+                }
+                return;
+            }
+
+            const ausgangId = (port1.dataset.type === 'out') ? port1.id : port2.id;
+            const eingangId = (port1.dataset.type === 'in')  ? port1.id : port2.id;
+
+            zustand.verbindungen = zustand.verbindungen.filter(v => {
+                if (v.port2 === eingangId) { v.domGruppe.remove(); return false; }
+                return true;
+            });
+
+            verbindungHerstellen(ausgangId, eingangId, zustand.vorschauFarbe);
+        }
+    }
+
+    function verdrahtungsVorschauAktualisieren(e) {
+        if (!zustand.ausgewaehlterPort || !zustand.temporaereVerbindung) return;
+        const svgRect  = domVerdrahtungsEbene.getBoundingClientRect();
+        const portRect = zustand.ausgewaehlterPort.getBoundingClientRect();
+        const sk = zustand.skalierung;
+        const x1 = (portRect.left + portRect.width/2 - svgRect.left) / sk;
+        const y1 = (portRect.top  + portRect.height/2 - svgRect.top) / sk;
+        const x2 = (e.clientX - svgRect.left) / sk;
+        const y2 = (e.clientY - svgRect.top)  / sk;
+        const dx = Math.abs(x2 - x1) * 0.5;
+        zustand.temporaereVerbindung.setAttribute('d', `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`);
+    }
+
+    function verbindungHerstellen(port1Id, port2Id, farbe) {
+        const vId = 'V' + zustand.naechsteVerbindungId++;
+        const gruppe = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const pfad = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pfad.setAttribute('class', 'kabel-pfad fertig');
+        pfad.setAttribute('stroke', farbe);
+        pfad.addEventListener('click', () => {
+            if (zustand.aktuellerModus === 'loeschen') {
+                gruppe.remove();
+                zustand.verbindungen = zustand.verbindungen.filter(v => v.id !== vId);
+                automatischSpeichern();
+            }
+        });
+
+        const steckerSVG = `<rect x="-4" y="-8" width="8" height="16" rx="2" class="kabel-stecker"/><circle cx="0" cy="0" r="2" fill="${farbe}"/>`;
+        const s1 = document.createElementNS('http://www.w3.org/2000/svg', 'g'); s1.innerHTML = steckerSVG;
+        const s2 = document.createElementNS('http://www.w3.org/2000/svg', 'g'); s2.innerHTML = steckerSVG;
+        gruppe.appendChild(pfad); gruppe.appendChild(s1); gruppe.appendChild(s2);
+        domVerdrahtungsEbene.appendChild(gruppe);
+
+        zustand.verbindungen.push({
+            id: vId, port1: port1Id, port2: port2Id, farbe,
+            domGruppe: gruppe, domPfad: pfad, domStecker1: s1, domStecker2: s2
+        });
+        verbindungenNeuzeichnen();
+        automatischSpeichern();
+    }
+
+    function verbindungenNeuzeichnen() {
+        const svgRect = domVerdrahtungsEbene.getBoundingClientRect();
+        const sk = zustand.skalierung;
+        zustand.verbindungen.forEach(v => {
+            const el1 = document.getElementById(v.port1);
+            const el2 = document.getElementById(v.port2);
+            if (!el1 || !el2) return;
+            const r1 = el1.getBoundingClientRect();
+            const r2 = el2.getBoundingClientRect();
+            const x1 = (r1.left + r1.width/2 - svgRect.left) / sk;
+            const y1 = (r1.top  + r1.height/2 - svgRect.top) / sk;
+            const x2 = (r2.left + r2.width/2 - svgRect.left) / sk;
+            const y2 = (r2.top  + r2.height/2 - svgRect.top) / sk;
+            const dx = Math.abs(x2 - x1) * 0.6;
+            v.domPfad.setAttribute('d', `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`);
+            v.domStecker1.setAttribute('transform', `translate(${x1},${y1})`);
+            v.domStecker2.setAttribute('transform', `translate(${x2},${y2})`);
+        });
+    }
+
+    /* ================================================================
+     * [16] SPEICHERN / LADEN
+     * ================================================================ */
+
+    /** Debounced Auto-Save in localStorage. */
+    function automatischSpeichern() {
+        clearTimeout(zustand.autoSpeicherTimer);
+        zustand.autoSpeicherTimer = setTimeout(() => {
+            try {
+                const daten = schaltungSerialisieren();
+                localStorage.setItem(SPEICHER_SCHLUESSEL, JSON.stringify(daten));
+            } catch (e) {
+                console.warn('Auto-Save fehlgeschlagen:', e);
+            }
+        }, AUTOSAVE_VERZOEGERUNG_MS);
+    }
+
+    /**
+     * Serialisiert die aktuelle Schaltung als JSON-Objekt.
+     * Module werden mit Index referenziert, Clock = Index -1.
+     */
+    function schaltungSerialisieren() {
+        const module = [];
+        const idZuIndex = { M1: -1 };
+        let idx = 0;
+
+        for (const id in zustand.instanzen) {
+            const inst = zustand.instanzen[id];
+            if (inst.typ === 'CLOCK') continue;
+
+            idZuIndex[id] = idx;
+            const mod = {
+                typ: inst.typ,
+                spalte: Math.round(parseInt(inst.el.style.left) / FELD_SCHRITT),
+                zeile:  Math.round(parseInt(inst.el.style.top)  / FELD_SCHRITT)
+            };
+            if (inst.typ === 'IN4') {
+                mod.schalter = [0,1,2,3].map(i => inst.zustand[`${id}_SW${i}`] || 0);
+            }
+            module.push(mod);
+            idx++;
+        }
+
+        const verbindungen = zustand.verbindungen.map(v => {
+            const vonModulId  = v.port1.substring(0, v.port1.indexOf('_'));
+            const vonPortId   = v.port1.substring(v.port1.indexOf('_') + 1);
+            const nachModulId = v.port2.substring(0, v.port2.indexOf('_'));
+            const nachPortId  = v.port2.substring(v.port2.indexOf('_') + 1);
+            return {
+                vonModul: idZuIndex[vonModulId] ?? -1,
+                vonPort: vonPortId,
+                nachModul: idZuIndex[nachModulId] ?? -1,
+                nachPort: nachPortId,
+                farbe: v.farbe
+            };
+        });
+
+        return { version: SPEICHER_VERSION, module, verbindungen };
+    }
+
+    /**
+     * Lädt eine Schaltung aus einem serialisierten Objekt.
+     * Löscht alle bestehenden Module (außer Clock) und Verbindungen.
+     */
+    function schaltungLaden(daten) {
+        // Alles löschen
+        const zuLoeschen = Object.keys(zustand.instanzen).filter(id => zustand.instanzen[id].typ !== 'CLOCK');
+        zuLoeschen.forEach(id => modulEntfernen(id));
+        zustand.verbindungen.forEach(v => v.domGruppe.remove());
+        zustand.verbindungen = [];
+        zustand.naechsteModulId = 2;
+
+        const indexZuId = { [-1]: 'M1' };
+
+        // Module wiederherstellen
+        (daten.module || []).forEach((mod, idx) => {
+            modulErstellen(mod.typ, mod.spalte, mod.zeile);
+            const neueId = 'M' + (zustand.naechsteModulId - 1);
+            indexZuId[idx] = neueId;
+
+            if (mod.schalter && mod.typ === 'IN4') {
+                const inst = zustand.instanzen[neueId];
+                mod.schalter.forEach((wert, i) => {
+                    const swId = `${neueId}_SW${i}`;
+                    inst.zustand[swId] = wert;
+                    const swEl = document.getElementById(swId);
+                    if (swEl) swEl.dataset.val = wert;
+                });
+            }
+        });
+
+        // Verbindungen wiederherstellen
+        (daten.verbindungen || []).forEach(v => {
+            const p1 = `${indexZuId[v.vonModul]}_${v.vonPort}`;
+            const p2 = `${indexZuId[v.nachModul]}_${v.nachPort}`;
+            if (document.getElementById(p1) && document.getElementById(p2)) {
+                verbindungHerstellen(p1, p2, v.farbe);
+            }
+        });
+    }
+
+    /** Exportiert die Schaltung als JSON-Datei zum Download. */
+    function schaltungExportieren() {
+        const daten = schaltungSerialisieren();
+        const json = JSON.stringify(daten, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'simulog-schaltung.json';
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /** Verarbeitet eine importierte JSON-Datei. */
+    function dateiImportVerarbeiten(ereignis) {
+        const datei = ereignis.target.files[0];
+        if (!datei) return;
+        const leser = new FileReader();
+        leser.onload = (e) => {
+            try {
+                const daten = JSON.parse(e.target.result);
+                if (daten && daten.version === SPEICHER_VERSION) {
+                    schaltungLaden(daten);
+                    automatischSpeichern();
+                } else {
+                    alert('Ungültiges Dateiformat oder Version.');
+                }
+            } catch (fehler) {
+                alert('Fehler beim Importieren: ' + fehler.message);
+            }
+        };
+        leser.readAsText(datei);
+        ereignis.target.value = '';
+    }
+
+    /* ================================================================
+     * [17] SIGNALVISUALISIERUNG (Optional)
+     * ================================================================ */
+
+    function signalVisualisierungUmschalten() {
+        zustand.signalVisualisierung = !zustand.signalVisualisierung;
+        document.getElementById('btn-signal-viz').classList.toggle('aktiv', zustand.signalVisualisierung);
+
+        // Klassen entfernen wenn deaktiviert
+        if (!zustand.signalVisualisierung) {
+            zustand.verbindungen.forEach(v => {
+                v.domPfad.classList.remove('signal-high', 'signal-low');
+            });
+        }
+    }
+
+    /* ================================================================
+     * [18] SIMULATIONSLOGIK (Zweiphasen)
+     *
+     * Phase 1: Alle Module lesen aus knotenWerte, schreiben in Puffer
+     * Phase 2: Puffer wird in knotenWerte übernommen
+     *
+     * Dadurch sehen alle Module den Zustand vom VORHERIGEN Takt –
+     * entscheidend für korrekte sequenzielle Schaltungen.
+     * ================================================================ */
+
+    function eingangLesen(portId, standard = 1) {
+        const v = zustand.verbindungen.find(v => v.port2 === portId);
+        if (!v) return standard;
+        const wert = zustand.knotenWerte[v.port1];
+        return (wert !== undefined) ? wert : 0;
+    }
+
+    function ausgangSetzen(portId, wert) {
+        if (ausgangsPuffer !== null) {
+            ausgangsPuffer[portId] = wert;
+        } else {
+            zustand.knotenWerte[portId] = wert;
+        }
+    }
+
+    function ledAktualisieren(elId, wert) {
+        const el = document.getElementById(elId);
+        if (el) el.classList.toggle('an', wert === 1);
+    }
+
+    function simulationsSchritt() {
+        zustand.taktZaehler++;
+
+        // ── Phase 1: Ausgänge in Puffer schreiben ──
+        ausgangsPuffer = {};
+
+        const taktSchnell = (Math.floor(zustand.taktZaehler / 2) % 2 === 0) ? 1 : 0;
+        const taktLangsam = (Math.floor(zustand.taktZaehler / 50) % 2 === 0) ? 1 : 0;
+
+        for (const modulId in zustand.instanzen) {
+            const instanz = zustand.instanzen[modulId];
+            const id = instanz.id;
+            const iz = instanz.zustand;
+
+            switch (instanz.typ) {
+
+                case 'CLOCK': {
+                    ausgangSetzen(`${id}_0`, 0);
+                    const tasterWert = iz.tasterGedrueckt || 0;
+                    const orErgebnis = tasterWert | eingangLesen(`${id}_L_BTN`, 0) | eingangLesen(`${id}_L_OR`, 0);
+                    ausgangSetzen(`${id}_OR_OUT`, orErgebnis);
+                    ledAktualisieren(`${id}_LED_OR`, orErgebnis);
+                    const resetAktiv = eingangLesen(`${id}_R`, 1);
+                    if (resetAktiv === 1) {
+                        ausgangSetzen(`${id}_C50_O`, 0); ausgangSetzen(`${id}_C2`, 0);
+                        ausgangSetzen(`${id}_C60`, 0); ledAktualisieren(`${id}_LED_50`, 0);
+                    } else {
+                        ausgangSetzen(`${id}_C50_O`, taktLangsam); ausgangSetzen(`${id}_C2`, taktSchnell);
+                        ausgangSetzen(`${id}_C60`, taktLangsam); ledAktualisieren(`${id}_LED_50`, taktLangsam);
+                    }
+                    break;
+                }
+
+                case 'IN4': {
+                    for (let k = 0; k < 4; k++) {
+                        const v = iz[`${id}_SW${k}`] || 0;
+                        ausgangSetzen(`${id}_O${k}`, v); ledAktualisieren(`${id}_L${k}`, v);
+                    }
+                    break;
+                }
+
+                case 'OUT4': {
+                    ausgangSetzen(`${id}_0_TOP`, 0); ausgangSetzen(`${id}_0_BOT`, 0);
+                    const en = eingangLesen(`${id}_EN`, 1);
+                    for (let k = 0; k < 4; k++) {
+                        const inp = eingangLesen(`${id}_I${k}`);
+                        ledAktualisieren(`${id}_L${k}`, (en === 0 && inp === 1) ? 1 : 0);
+                        ausgangSetzen(`${id}_O${k}`, (en === 0) ? inp : 1);
+                    }
+                    break;
+                }
+
+                case 'AND4': { for (let k=0;k<4;k++) { const r=eingangLesen(`${id}_A${k}`)&eingangLesen(`${id}_B${k}`); ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
+                case 'NAND4': { for (let k=0;k<4;k++) { const r=(eingangLesen(`${id}_A${k}`)&eingangLesen(`${id}_B${k}`))?0:1; ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
+                case 'OR4': { for (let k=0;k<4;k++) { const r=eingangLesen(`${id}_A${k}`)|eingangLesen(`${id}_B${k}`); ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
+                case 'NOR4': { for (let k=0;k<4;k++) { const r=(eingangLesen(`${id}_A${k}`)|eingangLesen(`${id}_B${k}`))?0:1; ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
+                case 'INV4': { for (let k=0;k<4;k++) { const r=(eingangLesen(`${id}_A${k}`)===0)?1:0; ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
+
+                case 'MUX': {
+                    ausgangSetzen(`${id}_0`, 0);
+                    const sel = eingangLesen(`${id}_S`);
+                    for (let k = 0; k < 4; k++) {
+                        ausgangSetzen(`${id}_Q${k}`, sel === 0 ? eingangLesen(`${id}_A${k}`) : eingangLesen(`${id}_B${k}`));
+                    }
+                    break;
+                }
+
+                case 'HEX': {
+                    ausgangSetzen(`${id}_0`, 0);
+                    const freigabe = eingangLesen(`${id}_E`, 1);
+                    const anzEl = document.getElementById(`${id}_ANZEIGE`);
+                    if (freigabe === 0) {
+                        const w = eingangLesen(`${id}_I0`)*1 + eingangLesen(`${id}_I1`)*2 + eingangLesen(`${id}_I2`)*4 + eingangLesen(`${id}_I3`)*8;
+                        const seg = SEGMENT_TABELLE[w];
+                        for (let s = 0; s < 7; s++) document.getElementById(`${id}_SEG_${s}`).classList.toggle('an', seg[s] === 1);
+                        anzEl.classList.add('aktiv');
+                    } else {
+                        for (let s = 0; s < 7; s++) document.getElementById(`${id}_SEG_${s}`).classList.remove('an');
+                        anzEl.classList.remove('aktiv');
+                    }
+                    break;
+                }
+
+                case 'ADD': {
+                    const a = eingangLesen(`${id}_A`), b = eingangLesen(`${id}_B`), c = eingangLesen(`${id}_Cin`);
+                    const summe = a^b^c, uebertrag = (a&b)|(c&(a^b));
+                    ausgangSetzen(`${id}_S`, summe); ausgangSetzen(`${id}_Cout`, uebertrag);
+                    ledAktualisieren(`${id}_L_S`, summe); ledAktualisieren(`${id}_L_C`, uebertrag);
+                    break;
+                }
+
+                case 'JK': {
+                    for (let ff = 0; ff < 2; ff++) {
+                        const einJ = eingangLesen(`${id}_J${ff}`), einK = eingangLesen(`${id}_K${ff}`);
+                        const takt = eingangLesen(`${id}_C${ff}`);
+                        const setz = eingangLesen(`${id}_S${ff}`), rueck = eingangLesen(`${id}_R${ff}`);
+
+                        if (setz === 0 && rueck === 1) iz.ffZustand[ff] = 1;
+                        else if (setz === 1 && rueck === 0) iz.ffZustand[ff] = 0;
+                        else if (setz === 0 && rueck === 0) iz.ffZustand[ff] = 1;
+                        else {
+                            if (iz.vorTakt[ff] === 1 && takt === 0) {
+                                if (einJ === 1 && einK === 0) iz.ffZustand[ff] = 1;
+                                else if (einJ === 0 && einK === 1) iz.ffZustand[ff] = 0;
+                                else if (einJ === 1 && einK === 1) iz.ffZustand[ff] = 1 - iz.ffZustand[ff];
+                            }
+                        }
+                        iz.vorTakt[ff] = takt;
+                        ausgangSetzen(`${id}_Q${ff}`, iz.ffZustand[ff]);
+                        ausgangSetzen(`${id}_nQ${ff}`, 1 - iz.ffZustand[ff]);
+                        ledAktualisieren(`${id}_L${ff}`, iz.ffZustand[ff]);
+                    }
+                    break;
+                }
+
+                case 'SR4': {
+                    const ladung = eingangLesen(`${id}_LD`), takt = eingangLesen(`${id}_CLK`);
+                    const serEin = eingangLesen(`${id}_SI`), reset = eingangLesen(`${id}_R`, 1);
+                    if (reset === 0) {
+                        for (let k = 0; k < 4; k++) iz.registerWerte[k] = 0;
+                    } else if (ladung === 0) {
+                        for (let k = 0; k < 4; k++) iz.registerWerte[k] = eingangLesen(`${id}_P${k}`);
+                    } else {
+                        if (iz.vorTakt[0] === 0 && takt === 1) {
+                            iz.registerWerte[3] = iz.registerWerte[2]; iz.registerWerte[2] = iz.registerWerte[1];
+                            iz.registerWerte[1] = iz.registerWerte[0]; iz.registerWerte[0] = serEin;
+                        }
+                    }
+                    iz.vorTakt[0] = takt;
+                    for (let k = 0; k < 4; k++) {
+                        ausgangSetzen(`${id}_Q${k}`, iz.registerWerte[k]);
+                        ledAktualisieren(`${id}_L${k}`, iz.registerWerte[k]);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ── Phase 2: Puffer in knotenWerte übertragen ──
+        Object.assign(zustand.knotenWerte, ausgangsPuffer);
+        ausgangsPuffer = null;
+
+        // ── Signalvisualisierung (optional) ──
+        if (zustand.signalVisualisierung) {
+            zustand.verbindungen.forEach(v => {
+                const w = zustand.knotenWerte[v.port1];
+                v.domPfad.classList.toggle('signal-high', w === 1);
+                v.domPfad.classList.toggle('signal-low',  w === 0);
+            });
+        }
+    }
+
+    /* ================================================================
+     * [19] APP-START
+     * ================================================================ */
+
+    document.addEventListener('DOMContentLoaded', initialisieren);
+
+})();
+</script>
+
+</body>
+</html>
