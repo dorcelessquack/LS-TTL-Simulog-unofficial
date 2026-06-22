@@ -43,4 +43,4 @@ This is an unofficial fan recreation for educational purposes. It is not affilia
 
 ## License
 
-See the LICENSE file for details (may not be created yet. Soon).
+See the LICENSE file for details.
