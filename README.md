@@ -36,7 +36,7 @@ Just download the repository and open `index.html` (file name may change) in you
 ```bash
 git clone dorcelessquack/LS-TTL-Simulog-unofficial.git
 ```
-# hint: there is a dev-stuff branch with experimental features ugly code but it works)
+# hint: there is a dev-stuff branch with experimental features (and ugly code, but it works)
 ## Disclaimer
 
 This is an unofficial fan recreation for educational purposes. It is not affiliated with, sponsored by, or associated with LD Didactic GmbH or Leybold. No proprietary code, firmware, or copyright assets from the original manufacturer are used.
