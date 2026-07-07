@@ -284,15 +284,12 @@
             width: 120px;
             height: 240px;
             background: var(--module-bg);
-            border: 1px solid #b0b0b0;
-            border-bottom: 3px solid #a0a0a0;
-            border-right: 2px solid #a0a0a0;
             box-sizing: border-box;
             border-radius: 3px;
-            box-shadow: 4px 6px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: inset 0 0 0 1px #b0b0b0, inset -2px -3px 0 #a0a0a0, 4px 6px 12px rgba(0, 0, 0, 0.3);
             pointer-events: auto;
             z-index: 10;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: box-shadow 0.2s;
             touch-action: none;
         }
 
@@ -319,12 +316,34 @@
             position: absolute;
             width: 120px;
             height: 240px;
-            background: rgba(52, 152, 219, 0.2);
-            border: 2px dashed #3498db;
             pointer-events: none;
             display: none;
-            z-index: 5;
+            z-index: 50;
             box-sizing: border-box;
+            opacity: 0.7;
+            border: 2px dashed #3498db;
+            border-radius: 6px;
+            background: rgba(52, 152, 219, 0.08);
+        }
+        .zieh-geist svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Floating cursor-attached ghost for drag from inventory */
+        .schwebe-geist {
+            position: fixed;
+            width: 120px;
+            height: 240px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.75;
+            transform: translate(-50%, -50%);
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+        }
+        .schwebe-geist svg {
+            width: 100%;
+            height: 100%;
         }
 
         /* ============================================================
@@ -624,6 +643,8 @@
         <span class="toolbar-trenner"></span>
         <button id="btn-exportieren" class="werkzeug-btn">💾<span class="btn-text"> Export</span></button>
         <button id="btn-importieren" class="werkzeug-btn">📂<span class="btn-text"> Import</span></button>
+        <span class="toolbar-trenner"></span>
+        <button id="btn-schaltplan" class="werkzeug-btn">📐<span class="btn-text"> Schaltplan</span></button>
     </div>
     <div id="brett-rahmen">
         <div id="brett-gitter"></div>
@@ -730,7 +751,7 @@
                 { id: 'B'+i, x: PORT_X_LINKS,  y: 52.5+i*50, type: 'in' },
                 { id: 'Q'+i, x: PORT_X_RECHTS, y: 42.5+i*50, type: 'out' }
             ]),
-            leds: [{ id: 'L0', x: 80, y: 42.5 }]
+            leds: [{ id: 'L0', x: 92, y: 42.5 }]
         };
     }
 
@@ -739,7 +760,7 @@
         const segs = SEGMENT_PUNKTE.map((p, i) =>
             `<polygon id="${idPlatzhalter}_SEG_${i}" class="segment" points="${p}"/>`
         ).join('');
-        return `<div class="hex-anzeige" id="${idPlatzhalter}_ANZEIGE" style="left:39px; top:68px; width:37px; height:52px;"><svg viewBox="0 0 24 38">${segs}</svg></div>`;
+        return `<div class="hex-anzeige" id="${idPlatzhalter}_ANZEIGE" style="left:41px; top:80px; width:37px; height:52px;"><svg viewBox="0 0 24 38">${segs}</svg></div>`;
     }
 
     /** Zufällige Kabelfarbe (rot oder blau). */
@@ -758,28 +779,43 @@
             svg: `
                 <rect x="40" y="45" width="35" height="55" class="logik-pfad"/>
                 <text x="57" y="72" class="logik-text" text-anchor="middle">≥1</text>
-                <path d="M ${PORT_X_LINKS} 55 L 20 55 M 35 55 L 40 55 M ${PORT_X_LINKS} 90 L 40 90 M 75 72.5 L ${PORT_X_RECHTS} 72.5" class="logik-pfad"/>
+                <!-- Line connecting M_LEFT and M_RIGHT, branching to button -->
+                <path d="M ${PORT_X_LINKS} 20 L ${PORT_X_RECHTS} 20" class="logik-pfad"/>
+                <path d="M 30 20 L 30 45" class="logik-pfad"/>
+                <path d="M 30 71 L 30 80 M 30 80 L 40 80" class="logik-pfad"/>
+                <!-- External inputs to OR gate (L_BTN is a dummy socket with no line) -->
+                <path d="M ${PORT_X_LINKS} 90 L 40 90" class="logik-pfad"/>
+                <!-- OR gate output -->
+                <path d="M 75 72.5 L ${PORT_X_RECHTS} 72.5" class="logik-pfad"/>
+                
                 <rect x="40" y="115" width="35" height="90" class="logik-pfad"/>
-                <path d="M 45 150 L 45 140 L 52 140 L 52 150 L 59 150" class="logik-pfad"/>
-                <text x="73" y="125" class="logik-text" text-anchor="end" font-size="9">50:1</text>
-                <text x="73" y="160" class="logik-text" text-anchor="end" font-size="9">2:1</text>
-                <text x="73" y="195" class="logik-text" text-anchor="end" font-size="9">60:1</text>
-                <text x="43" y="195" class="logik-text" text-anchor="start" font-size="9">R</text>
+                <path d="M 52 145 L 52 135 L 59 135 L 59 145 L 66 145" class="logik-pfad"/>
+                
+                <!-- Text labels drawn in SVG -->
+                <text x="28" y="130" class="logik-text" font-size="8" text-anchor="end">0</text>
+                
+                
+                <text x="71" y="129" class="logik-text" font-size="7" text-anchor="end">50:1</text>
+                <text x="71" y="163" class="logik-text" font-size="7" text-anchor="end">2:1</text>
+                <text x="71" y="195" class="logik-text" font-size="7" text-anchor="end">60:1</text>
+                <text x="43" y="198" class="logik-text" font-size="7" text-anchor="start">R</text>
+                
                 <path d="M ${PORT_X_LINKS} 195 L 40 195 M 75 130 L ${PORT_X_RECHTS} 130 M 75 165 L ${PORT_X_RECHTS} 165 M 75 200 L ${PORT_X_RECHTS} 200" class="logik-pfad"/>
             `,
             ports: [
-                { id: 'L_DUMMY1', x: PORT_X_LINKS, y: 20, type: 'in' },
-                { id: 'L_BTN', x: PORT_X_LINKS, y: 55, type: 'in' },
+                { id: 'M_LEFT', x: PORT_X_LINKS, y: 20, type: 'out' },
+                { id: 'L_DUMMY1', x: PORT_X_LINKS, y: 55, type: 'in' },
                 { id: 'L_OR', x: PORT_X_LINKS, y: 90, type: 'in' },
-                { id: '0', x: PORT_X_LINKS, y: 130, type: 'out', lbl: '0', align: 'right' },
+                { id: '0', x: PORT_X_LINKS, y: 130, type: 'out' },
                 { id: 'L_DUMMY2', x: PORT_X_LINKS, y: 165, type: 'in' },
                 { id: 'R', x: PORT_X_LINKS, y: 195, type: 'in' },
+                { id: 'M_RIGHT', x: PORT_X_RECHTS, y: 20, type: 'out' },
                 { id: 'OR_OUT', x: PORT_X_RECHTS, y: 72.5, type: 'out' },
                 { id: 'C50_O', x: PORT_X_RECHTS, y: 130, type: 'out' },
                 { id: 'C2', x: PORT_X_RECHTS, y: 165, type: 'out' },
                 { id: 'C60', x: PORT_X_RECHTS, y: 200, type: 'out' }
             ],
-            leds: [{ id: 'LED_OR', x: 80, y: 72.5 }, { id: 'LED_50', x: 80, y: 130 }],
+            leds: [{ id: 'LED_OR', x: 92, y: 20 }, { id: 'LED_50', x: 92, y: 130 }],
             html: `<div class="taster" id="##ID##_BTN" style="left:17px; top:45px;"></div>`
         },
 
@@ -787,14 +823,22 @@
             name: '4-Bit Input', limit: 2,
             svg: [0,1,2,3].map(i => `<path d="M 30 ${35+i*45} L ${PORT_X_RECHTS} ${35+i*45}" class="logik-pfad"/>`).join(''),
             ports: [0,1,2,3].map(i => ({ id: 'O'+i, x: PORT_X_RECHTS, y: 35+i*45, type: 'out' })),
-            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 75, y: 35+i*45 })),
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 92, y: 35+i*45 })),
             html: [0,1,2,3].map(i => `<div class="schalter" id="##ID##_SW${i}" data-val="0" style="left:25px; top:${23+i*45}px;"><div class="schalter-hebel"></div></div>`).join('')
         },
 
         'OUT4': {
             name: '4-Bit Output', limit: 1,
-            svg: `<path d="M 40 15 L 50 15 L 50 190" class="logik-pfad"/>` +
-                [0,1,2,3].map(i => { const y = 55+i*45; return `<polygon points="35,${y-15} 65,${y} 35,${y+15}" class="logik-pfad" fill="var(--module-bg)"/><circle cx="50" cy="${y-7.5}" r="3" class="logik-pfad" fill="var(--module-bg)"/><path d="M ${PORT_X_LINKS} ${y} L 35 ${y} M 65 ${y} L ${PORT_X_RECHTS} ${y}" class="logik-pfad"/>`; }).join(''),
+            svg: `<path d="M 40 15 L 32 15 L 32 190" class="logik-pfad"/>` +
+                [0,1,2,3].map(i => {
+                    const y = 55 + i * 45;
+                    return `
+                        <polygon points="40,${y-10} 65,${y} 40,${y+10}" class="logik-pfad" fill="var(--module-bg)"/>
+                        <circle cx="50" cy="${y-12}" r="2.5" class="logik-pfad" fill="var(--module-bg)"/>
+                        <path d="M 32 ${y-15} L 50 ${y-15} L 50 ${y-14.5} M 50 ${y-9.5} L 50 ${y-6}" class="logik-pfad"/>
+                        <path d="M ${PORT_X_LINKS} ${y} L 40 ${y} M 65 ${y} L ${PORT_X_RECHTS} ${y}" class="logik-pfad"/>
+                    `;
+                }).join(''),
             ports: [
                 { id: 'EN', x: 40, y: 15, type: 'in' },
                 { id: '0_TOP', x: 75, y: 15, type: 'out', lbl: '0', align: 'right' },
@@ -804,7 +848,7 @@
                     { id: 'O'+i, x: PORT_X_RECHTS, y: 55+i*45, type: 'out' }
                 ])
             ],
-            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 80, y: 55+i*45 }))
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 92, y: 55+i*45 }))
         },
 
         'AND4':  gatterDefinitionErstellen('4 AND',  '&amp;', false),
@@ -819,16 +863,17 @@
                 { id: 'A'+i, x: PORT_X_LINKS, y: 42.5+i*50, type: 'in' },
                 { id: 'Q'+i, x: PORT_X_RECHTS, y: 42.5+i*50, type: 'out' }
             ]),
-            leds: [{ id: 'L0', x: 80, y: 42.5 }]
+            leds: [{ id: 'L0', x: 92, y: 42.5 }]
         },
 
         'MUX': {
             name: '4 Multiplexer', limit: 1,
-            svg: `<path d="M 28 26 L 40 26 L 40 210" class="logik-pfad"/>` +
+            svg: `<path d="M 55 15 L 55 35 M 55 70 L 55 80 M 55 115 L 55 125 M 55 160 L 55 170" class="logik-pfad"/>` +
+                `<text x="63" y="19" class="logik-text" font-size="8" text-anchor="start">EA . EB</text>` +
+                `<line x1="86" y1="11" x2="95" y2="11" stroke="black" stroke-width="1"/>` +
                 [0,1,2,3].map(i => `<rect x="40" y="${35+i*45}" width="30" height="35" class="logik-pfad"/><text x="45" y="${48+i*45}" class="logik-text" font-size="9">A</text><text x="45" y="${65+i*45}" class="logik-text" font-size="9">B</text><path d="M ${PORT_X_LINKS} ${40+i*45} L 40 ${40+i*45} M ${PORT_X_LINKS} ${60+i*45} L 40 ${60+i*45} M 70 ${50+i*45} L ${PORT_X_RECHTS} ${50+i*45}" class="logik-pfad"/>`).join(''),
             ports: [
-                { id: 'S', x: 23, y: 15, type: 'in', lbl: 'EaEb', align: 'top', offset: -5 },
-                { id: '0', x: 85, y: 15, type: 'out', lbl: '0', align: 'top' },
+                { id: 'S', x: 55, y: 15, type: 'in' },
                 ...[0,1,2,3].flatMap(i => [
                     { id: 'A'+i, x: PORT_X_LINKS, y: 40+i*45, type: 'in' },
                     { id: 'B'+i, x: PORT_X_LINKS, y: 60+i*45, type: 'in' },
@@ -840,16 +885,44 @@
 
         'HEX': {
             name: 'LED-Display', limit: 1,
-            svg: `<rect x="35" y="10" width="45" height="195" class="logik-pfad"/>`,
+            svg: `
+                <rect x="35" y="25" width="50" height="195" class="logik-pfad"/>
+                <!-- Input and Output lines -->
+                <path d="M 45 10 L 45 19" class="logik-pfad"/> <!-- E input path stopping at circle border -->
+                <circle cx="45" cy="22" r="3" class="logik-pfad" fill="white"/>
+                
+                <!-- 0 output is standalone at top right in real Simulog -->
+                
+                <path d="M ${PORT_X_LINKS} 60 L 35 60" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 90 L 35 90" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 120 L 35 120" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 150 L 35 150" class="logik-pfad"/>
+                
+                <!-- Bottom RBI / RBO loops and paths (no lines crossing inside the circles) -->
+                <path d="M ${PORT_X_LINKS} 195 L 29 195" class="logik-pfad"/>
+                <circle cx="32" cy="195" r="3" class="logik-pfad" fill="white"/>
+                
+                <path d="M 91 195 L ${PORT_X_RECHTS} 195" class="logik-pfad"/>
+                <circle cx="88" cy="195" r="3" class="logik-pfad" fill="white"/>
+                
+                <!-- Internal labels inside the box -->
+                <text x="45" y="38" class="logik-text" font-size="7.5" text-anchor="middle">E</text>
+                <text x="32" y="55" class="logik-text" font-size="7.5" text-anchor="end">2⁰</text>
+                <text x="32" y="85" class="logik-text" font-size="7.5" text-anchor="end">2¹</text>
+                <text x="32" y="115" class="logik-text" font-size="7.5" text-anchor="end">2²</text>
+                <text x="32" y="145" class="logik-text" font-size="7.5" text-anchor="end">2³</text>
+                <text x="37" y="212" class="logik-text" font-size="6" text-anchor="start">RBI</text>
+                <text x="83" y="212" class="logik-text" font-size="6" text-anchor="end">RBO</text>
+            `,
             ports: [
-                { id: 'E', x: 23, y: 15, type: 'in', lbl: 'E', align: 'top' },
-                { id: '0', x: 85, y: 15, type: 'out', lbl: '0', align: 'top' },
-                { id: 'I0', x: PORT_X_LINKS, y: 60, type: 'in', lbl: '2⁰', align: 'right' },
-                { id: 'I1', x: PORT_X_LINKS, y: 90, type: 'in', lbl: '2¹', align: 'right' },
-                { id: 'I2', x: PORT_X_LINKS, y: 120, type: 'in', lbl: '2²', align: 'right' },
-                { id: 'I3', x: PORT_X_LINKS, y: 150, type: 'in', lbl: '2³', align: 'right' },
-                { id: 'RBI', x: PORT_X_LINKS, y: 195, type: 'in', lbl: 'RBI', align: 'right' },
-                { id: 'RBO', x: PORT_X_RECHTS, y: 195, type: 'out', lbl: 'RBO', align: 'left' }
+                { id: 'E', x: 45, y: 10, type: 'in' },
+                { id: '0', x: 70, y: 10, type: 'out', lbl: '0', align: 'right' },
+                { id: 'I0', x: PORT_X_LINKS, y: 60, type: 'in' },
+                { id: 'I1', x: PORT_X_LINKS, y: 90, type: 'in' },
+                { id: 'I2', x: PORT_X_LINKS, y: 120, type: 'in' },
+                { id: 'I3', x: PORT_X_LINKS, y: 150, type: 'in' },
+                { id: 'RBI', x: PORT_X_LINKS, y: 195, type: 'in' },
+                { id: 'RBO', x: PORT_X_RECHTS, y: 195, type: 'out' }
             ],
             leds: [],
             html: siebenSegmentHTML('##ID##')
@@ -857,51 +930,142 @@
 
         'ADD': {
             name: '1 Volladdierer', limit: 1,
-            svg: `<rect x="35" y="15" width="45" height="140" class="logik-pfad"/><text x="57" y="48" class="logik-text" font-size="20" text-anchor="middle">∑</text><path d="M ${PORT_X_LINKS} 30 L 35 30 M ${PORT_X_LINKS} 80 L 35 80 M ${PORT_X_LINKS} 130 L 35 130 M 80 30 L ${PORT_X_RECHTS} 30 M 80 80 L ${PORT_X_RECHTS} 80" class="logik-pfad"/>`,
+            svg: `
+                <rect x="33" y="25" width="54" height="110" class="logik-pfad"/>
+                <text x="60" y="85" class="logik-text" font-size="20" text-anchor="middle">∑</text>
+                <!-- Input lines -->
+                <path d="M ${PORT_X_LINKS} 40 L 33 40 M ${PORT_X_LINKS} 80 L 33 80 M ${PORT_X_LINKS} 120 L 33 120" class="logik-pfad"/>
+                <!-- Output lines -->
+                <path d="M 87 40 L ${PORT_X_RECHTS} 40 M 87 80 L ${PORT_X_RECHTS} 80" class="logik-pfad"/>
+                <!-- Labels inside the box -->
+                <text x="35" y="43" class="logik-text" font-size="6.5" text-anchor="start">Cin</text>
+                <text x="36" y="83" class="logik-text" font-size="7.5" text-anchor="start">A</text>
+                <text x="36" y="123" class="logik-text" font-size="7.5" text-anchor="start">B</text>
+                <text x="85" y="43" class="logik-text" font-size="6.5" text-anchor="end">Cout</text>
+                <text x="84" y="83" class="logik-text" font-size="7.5" text-anchor="end">S</text>
+            `,
             ports: [
-                { id: 'Cin', x: PORT_X_LINKS, y: 30, type: 'in', lbl: 'Cin', align: 'right' },
-                { id: 'A', x: PORT_X_LINKS, y: 80, type: 'in', lbl: 'A', align: 'right' },
-                { id: 'B', x: PORT_X_LINKS, y: 130, type: 'in', lbl: 'B', align: 'right' },
-                { id: 'Cout', x: PORT_X_RECHTS, y: 30, type: 'out', lbl: 'Cout', align: 'left' },
-                { id: 'S', x: PORT_X_RECHTS, y: 80, type: 'out', lbl: 'S', align: 'left' }
+                { id: 'Cin', x: PORT_X_LINKS, y: 40, type: 'in' },
+                { id: 'A', x: PORT_X_LINKS, y: 80, type: 'in' },
+                { id: 'B', x: PORT_X_LINKS, y: 120, type: 'in' },
+                { id: 'Cout', x: PORT_X_RECHTS, y: 40, type: 'out' },
+                { id: 'S', x: PORT_X_RECHTS, y: 80, type: 'out' }
             ],
-            leds: [{ id: 'L_C', x: 80, y: 30 }, { id: 'L_S', x: 80, y: 80 }]
+            leds: [{ id: 'L_C', x: 92, y: 40 }, { id: 'L_S', x: 92, y: 80 }]
         },
 
         'JK': {
             name: '2 JK-Flipflop', limit: 2,
-            svg: [0,1].map(i => { const y = 25+i*100; return `<rect x="40" y="${y}" width="35" height="70" class="logik-pfad"/><circle cx="46" cy="${y}" r="2" class="logik-pfad"/><circle cx="46" cy="${y+70}" r="2" class="logik-pfad"/><text x="45" y="${y+13}" class="logik-text" font-size="9">S</text><text x="45" y="${y+65}" class="logik-text" font-size="9">R</text><path d="M ${PORT_X_LINKS} ${y+15} L 40 ${y+15} M ${PORT_X_LINKS} ${y+35} L 40 ${y+35} M ${PORT_X_LINKS} ${y+55} L 40 ${y+55} M 75 ${y+15} L ${PORT_X_RECHTS} ${y+15} M 75 ${y+55} L ${PORT_X_RECHTS} ${y+55}" class="logik-pfad"/><polygon points="40,${y+30} 45,${y+35} 40,${y+40}" fill="none" stroke="#000"/><circle cx="38" cy="${y+35}" r="2" class="logik-pfad"/><circle cx="77" cy="${y+55}" r="2" class="logik-pfad"/>`; }).join(''),
-            ports: [0,1].flatMap(i => {
-                const y = 20+i*100;
-                return [
-                    { id: 'S'+i, x: 40, y: y-10, type: 'in', lbl: 'S', align: 'right' },
-                    { id: 'J'+i, x: PORT_X_LINKS, y: y+20, type: 'in', lbl: 'J', align: 'right' },
-                    { id: 'C'+i, x: PORT_X_LINKS, y: y+40, type: 'in' },
-                    { id: 'K'+i, x: PORT_X_LINKS, y: y+60, type: 'in', lbl: 'K', align: 'right' },
-                    { id: 'R'+i, x: 40, y: y+80, type: 'in', lbl: 'R', align: 'right' },
-                    { id: 'Q'+i, x: PORT_X_RECHTS, y: y+20, type: 'out', lbl: 'Q', align: 'left' },
-                    { id: 'nQ'+i, x: PORT_X_RECHTS, y: y+60, type: 'out', lbl: '!Q', align: 'left' }
-                ];
-            }),
-            leds: [{ id: 'L0', x: 80, y: 40 }, { id: 'L1', x: 80, y: 140 }]
+            svg: [0,1].map(i => {
+                const y = 25+i*100;
+                return `
+                    <rect x="40" y="${y}" width="35" height="70" class="logik-pfad"/>
+                    
+                    <!-- S and R input negation circles on box edges (centered at 57.5, shifted vertically by radius 3 to sit outside box) -->
+                    <circle cx="57.5" cy="${y-3}" r="3" class="logik-pfad" fill="white"/>
+                    <circle cx="57.5" cy="${y+73}" r="3" class="logik-pfad" fill="white"/>
+                    
+                    <!-- Lines connecting S and R ports (on the left column) to the negation circles, stopping at circle edge (radius 3) -->
+                    <path d="M ${PORT_X_LINKS} ${y-10} L 57.5 ${y-10} L 57.5 ${y-6}" class="logik-pfad"/>
+                    <path d="M ${PORT_X_LINKS} ${y+80} L 57.5 ${y+80} L 57.5 ${y+76}" class="logik-pfad"/>
+                    
+                    <!-- S and R internal labels -->
+                    <text x="57.5" y="${y+15}" class="logik-text" font-size="9" text-anchor="middle">S</text>
+                    <text x="57.5" y="${y+60}" class="logik-text" font-size="9" text-anchor="middle">R</text>
+                    
+                    <!-- Lines connecting J, C, K, Q, !Q ports -->
+                    <path d="M ${PORT_X_LINKS} ${y+15} L 40 ${y+15} M ${PORT_X_LINKS} ${y+35} L 34 ${y+35} M ${PORT_X_LINKS} ${y+55} L 40 ${y+55} M 75 ${y+15} L ${PORT_X_RECHTS} ${y+15} M 81 ${y+55} L ${PORT_X_RECHTS} ${y+55}" class="logik-pfad"/>
+                    <polygon points="40,${y+30} 45,${y+35} 40,${y+40}" fill="none" stroke="#000"/>
+                    <circle cx="37" cy="${y+35}" r="3" class="logik-pfad" fill="white"/>
+                    <circle cx="78" cy="${y+55}" r="3" class="logik-pfad" fill="white"/>
+                    <text x="45" y="${y+18}" class="logik-text" font-size="8" text-anchor="start">J</text>
+                    <text x="45" y="${y+58}" class="logik-text" font-size="8" text-anchor="start">K</text>
+                    <text x="70" y="${y+18}" class="logik-text" font-size="8" text-anchor="end">Q</text>
+                    <text x="70" y="${y+58}" class="logik-text" font-size="8" text-anchor="end">Q</text>
+                    <line x1="63" y1="${y+50}" x2="70" y2="${y+50}" stroke="black" stroke-width="1"/>
+                `;
+            }).join(''),
+            ports: [
+                // Unit 0
+                { id: 'S0', x: PORT_X_LINKS, y: 15, type: 'in' },
+                { id: 'J0', x: PORT_X_LINKS, y: 40, type: 'in' },
+                { id: 'C0', x: PORT_X_LINKS, y: 60, type: 'in' },
+                { id: 'K0', x: PORT_X_LINKS, y: 80, type: 'in' },
+                { id: 'R0', x: PORT_X_LINKS, y: 105, type: 'in' },
+                { id: 'Q0', x: PORT_X_RECHTS, y: 40, type: 'out' },
+                { id: 'nQ0', x: PORT_X_RECHTS, y: 80, type: 'out' },
+                // Unit 1
+                { id: 'S1', x: PORT_X_LINKS, y: 115, type: 'in' },
+                { id: 'J1', x: PORT_X_LINKS, y: 140, type: 'in' },
+                { id: 'C1', x: PORT_X_LINKS, y: 160, type: 'in' },
+                { id: 'K1', x: PORT_X_LINKS, y: 180, type: 'in' },
+                { id: 'R1', x: PORT_X_LINKS, y: 205, type: 'in' },
+                { id: 'Q1', x: PORT_X_RECHTS, y: 140, type: 'out' },
+                { id: 'nQ1', x: PORT_X_RECHTS, y: 180, type: 'out' }
+            ],
+            leds: [{ id: 'L0', x: 92, y: 40 }, { id: 'L1', x: 92, y: 140 }]
         },
 
         'SR4': {
             name: '4-Bit-Schieb.', limit: 1,
-            svg: `<rect x="40" y="10" width="35" height="60" class="logik-pfad"/><path d="M ${PORT_X_LINKS} 20 L 40 20 M ${PORT_X_LINKS} 40 L 40 40 M ${PORT_X_LINKS} 60 L 40 60" class="logik-pfad"/><polygon points="40,15 45,20 40,25" fill="none" stroke="#000"/><circle cx="38" cy="40" r="2" class="logik-pfad"/>` +
-                [0,1,2,3].map(i => `<rect x="40" y="${80+i*30}" width="35" height="25" class="logik-pfad"/><path d="M ${PORT_X_LINKS} ${92.5+i*30} L 40 ${92.5+i*30} M 75 ${92.5+i*30} L ${PORT_X_RECHTS} ${92.5+i*30}" class="logik-pfad"/>`).join('') +
-                `<circle cx="42" cy="198" r="2" class="logik-pfad"/><path d="M 40 215 L 40 200" class="logik-pfad"/>`,
+            svg: `
+                <!-- Control box -->
+                <rect x="40" y="10" width="35" height="70" class="logik-pfad"/>
+                <!-- Register box -->
+                <rect x="40" y="80" width="35" height="120" class="logik-pfad"/>
+                
+                <!-- Dividers inside register box -->
+                <line x1="40" y1="110" x2="75" y2="110" class="logik-pfad"/>
+                <line x1="40" y1="140" x2="75" y2="140" class="logik-pfad"/>
+                <line x1="40" y1="170" x2="75" y2="170" class="logik-pfad"/>
+                
+                <!-- Inputs left -->
+                <path d="M ${PORT_X_LINKS} 20 L 40 20" class="logik-pfad"/> <!-- CLK input -->
+                <path d="M ${PORT_X_LINKS} 42.5 L 34 42.5" class="logik-pfad"/> <!-- LD input with negation space -->
+                <circle cx="37" cy="42.5" r="3" class="logik-pfad" fill="white"/>
+                <path d="M ${PORT_X_LINKS} 65 L 40 65" class="logik-pfad"/> <!-- SI input -->
+                
+                <path d="M ${PORT_X_LINKS} 95 L 40 95" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 125 L 40 125" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 155 L 40 155" class="logik-pfad"/>
+                <path d="M ${PORT_X_LINKS} 185 L 40 185" class="logik-pfad"/>
+                
+                <!-- Outputs right -->
+                <path d="M 75 95 L ${PORT_X_RECHTS} 95" class="logik-pfad"/>
+                <path d="M 75 125 L ${PORT_X_RECHTS} 125" class="logik-pfad"/>
+                <path d="M 75 155 L ${PORT_X_RECHTS} 155" class="logik-pfad"/>
+                <path d="M 75 185 L ${PORT_X_RECHTS} 185" class="logik-pfad"/>
+                
+                <!-- CLK dynamic indicator triangle inside box -->
+                <polygon points="40,15 45,20 40,25" fill="none" stroke="black" stroke-width="1"/>
+                
+                <!-- R reset input at bottom, shifted vertically by radius 3 to sit outside box -->
+                <circle cx="57.5" cy="203" r="3" class="logik-pfad" fill="white"/>
+                <path d="M ${PORT_X_LINKS} 220 L 57.5 220 L 57.5 206" class="logik-pfad"/>
+                
+                <!-- Text labels drawn in SVG -->
+                <text x="47" y="23" class="logik-text" font-size="8" text-anchor="start">Takt</text>
+                <text x="47" y="45.5" class="logik-text" font-size="8" text-anchor="start">Load</text>
+                <text x="47" y="68" class="logik-text" font-size="8" text-anchor="start">SI</text>
+                
+                <text x="47" y="98" class="logik-text" font-size="8" text-anchor="start">P0</text>
+                <text x="47" y="128" class="logik-text" font-size="8" text-anchor="start">P1</text>
+                <text x="47" y="158" class="logik-text" font-size="8" text-anchor="start">P2</text>
+                <text x="47" y="188" class="logik-text" font-size="8" text-anchor="start">P3</text>
+                
+                <text x="47" y="215" class="logik-text" font-size="8" text-anchor="start">R</text>
+            `,
             ports: [
-                { id: 'CLK', x: PORT_X_LINKS, y: 20, type: 'in', lbl: 'Takt', align: 'right' },
-                { id: 'LD', x: PORT_X_LINKS, y: 40, type: 'in', lbl: 'Load', align: 'right' },
-                { id: 'SI', x: PORT_X_LINKS, y: 60, type: 'in', lbl: 'SI', align: 'right' },
+                { id: 'CLK', x: PORT_X_LINKS, y: 20, type: 'in' },
+                { id: 'LD', x: PORT_X_LINKS, y: 42.5, type: 'in' },
+                { id: 'SI', x: PORT_X_LINKS, y: 65, type: 'in' },
                 ...[0,1,2,3].flatMap(i => [
-                    { id: 'P'+i, x: PORT_X_LINKS, y: 92.5+i*30, type: 'in', lbl: 'P'+i, align: 'right' },
-                    { id: 'Q'+i, x: PORT_X_RECHTS, y: 92.5+i*30, type: 'out', lbl: 'Q'+i, align: 'left' }
+                    { id: 'P'+i, x: PORT_X_LINKS, y: 95+i*30, type: 'in' },
+                    { id: 'Q'+i, x: PORT_X_RECHTS, y: 95+i*30, type: 'out' }
                 ]),
-                { id: 'R', x: 40, y: 215, type: 'in', lbl: 'R', align: 'right' }
+                { id: 'R', x: PORT_X_LINKS, y: 220, type: 'in' }
             ],
-            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 80, y: 92.5+i*30 }))
+            leds: [0,1,2,3].map(i => ({ id: 'L'+i, x: 92, y: 95+i*30 }))
         }
     };
 
@@ -941,6 +1105,8 @@
      * ================================================================ */
 
     let domBrettGitter, domModulEbene, domVerdrahtungsEbene, domInventar, domZielGeist;
+    /** Floating ghost that follows the cursor during inventory drag. */
+    let domSchwebeGeist = null;
 
     /* ================================================================
      * [7] INITIALISIERUNG
@@ -1010,11 +1176,13 @@
         document.getElementById('btn-exportieren').addEventListener('click', schaltungExportieren);
         document.getElementById('btn-importieren').addEventListener('click', () => document.getElementById('datei-import').click());
         document.getElementById('datei-import').addEventListener('change', dateiImportVerarbeiten);
+        document.getElementById('btn-schaltplan').addEventListener('click', schaltplanExportieren);
 
         // Seitenleiste Toggle
         document.getElementById('btn-seitenleiste-toggle').addEventListener('click', seitenleistUmschalten);
 
-        // Drag & Drop (Desktop)
+        // Drag & Drop (Desktop) — we use custom mouse-based drag, not native HTML drag
+        // Native drag events are kept as fallback but the primary UX is mouse-based.
         brettRahmen.addEventListener('dragover', dragUeberBrett);
         brettRahmen.addEventListener('dragleave', () => domZielGeist.style.display = 'none');
         brettRahmen.addEventListener('drop', dropAufBrett);
@@ -1100,12 +1268,67 @@
             `;
 
             if (!istLeer) {
-                // Desktop: Drag & Drop
-                eintrag.addEventListener('dragstart', (e) => {
+                // Prevent native drag — we use custom mouse drag instead
+                eintrag.draggable = false;
+
+                // Desktop: Custom mouse-based drag with floating preview
+                eintrag.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
                     zustand.ziehTyp = typ;
                     zustand.ausgewaehlterModulTyp = null;
-                    e.dataTransfer.setData('text/plain', typ);
+
+                    // Create floating ghost at cursor
+                    if (domSchwebeGeist) domSchwebeGeist.remove();
+                    domSchwebeGeist = document.createElement('div');
+                    domSchwebeGeist.className = 'schwebe-geist';
+                    domSchwebeGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(typ)}</svg>`;
+                    domSchwebeGeist.style.left = e.clientX + 'px';
+                    domSchwebeGeist.style.top = e.clientY + 'px';
+                    document.body.appendChild(domSchwebeGeist);
+
+                    const onMouseMove = (ev) => {
+                        if (domSchwebeGeist) {
+                            domSchwebeGeist.style.left = ev.clientX + 'px';
+                            domSchwebeGeist.style.top = ev.clientY + 'px';
+                        }
+                        // Show grid-snapped target ghost on the board
+                        const brettRect = domBrettGitter.getBoundingClientRect();
+                        if (ev.clientX >= brettRect.left && ev.clientX <= brettRect.right &&
+                            ev.clientY >= brettRect.top && ev.clientY <= brettRect.bottom) {
+                            const pos = brettKoordinaten(ev.clientX, ev.clientY);
+                            const besetzt = zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1]?.[pos.spalte];
+                            domZielGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(typ)}</svg>`;
+                            domZielGeist.style.left = (pos.spalte * FELD_SCHRITT) + 'px';
+                            domZielGeist.style.top  = (pos.zeile  * FELD_SCHRITT) + 'px';
+                            domZielGeist.style.borderColor = besetzt ? '#e74c3c' : '#3498db';
+                            domZielGeist.style.display = 'block';
+                        } else {
+                            domZielGeist.style.display = 'none';
+                        }
+                    };
+                    const onMouseUp = (ev) => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        if (domSchwebeGeist) { domSchwebeGeist.remove(); domSchwebeGeist = null; }
+                        domZielGeist.style.display = 'none';
+                        domZielGeist.innerHTML = '';
+
+                        // Check if dropped on the board
+                        const brettRect = domBrettGitter.getBoundingClientRect();
+                        if (ev.clientX >= brettRect.left && ev.clientX <= brettRect.right &&
+                            ev.clientY >= brettRect.top && ev.clientY <= brettRect.bottom) {
+                            const pos = brettKoordinaten(ev.clientX, ev.clientY);
+                            if (!zustand.brettBelegt[pos.zeile][pos.spalte] && !zustand.brettBelegt[pos.zeile + 1]?.[pos.spalte]) {
+                                modulErstellen(zustand.ziehTyp, pos.spalte, pos.zeile);
+                            }
+                        }
+                        zustand.ziehTyp = null;
+                    };
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
                 });
+
                 // Touch & Klick: Tap-to-Place Auswahl
                 eintrag.addEventListener('click', (e) => {
                     if (e.detail === 0) return; // Ignore synthetic clicks from drag
@@ -1237,6 +1460,7 @@
      * ================================================================ */
 
     function modulErstellen(typ, spalte, zeile, fixiert = false) {
+        console.log("modulErstellen got typ:", typ, "of type:", typeof typ);
         const def = MODUL_DEFINITIONEN[typ];
         if (!fixiert) {
             if (zustand.modulZaehler[typ] >= def.limit) return;
@@ -1346,10 +1570,48 @@
             if (z.contains('port') || z.contains('schalter') || z.contains('taster')) return;
             const start = startVerschiebung(e.clientX, e.clientY);
             if (!start) return;
-            const onMove = () => modulEl.style.pointerEvents = 'none';
+
+            const inst = zustand.instanzen[modulId];
+            
+            if (domSchwebeGeist) domSchwebeGeist.remove();
+            domSchwebeGeist = document.createElement('div');
+            domSchwebeGeist.className = 'schwebe-geist';
+            domSchwebeGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(inst.typ)}</svg>`;
+            domSchwebeGeist.style.left = e.clientX + 'px';
+            domSchwebeGeist.style.top = e.clientY + 'px';
+            document.body.appendChild(domSchwebeGeist);
+
+            modulEl.style.pointerEvents = 'none';
+            modulEl.style.opacity = '0.3';
+
+            const onMove = (ev) => {
+                if (domSchwebeGeist) {
+                    domSchwebeGeist.style.left = ev.clientX + 'px';
+                    domSchwebeGeist.style.top = ev.clientY + 'px';
+                }
+                const brettRect = domBrettGitter.getBoundingClientRect();
+                if (ev.clientX >= brettRect.left && ev.clientX <= brettRect.right &&
+                    ev.clientY >= brettRect.top && ev.clientY <= brettRect.bottom) {
+                    const pos = brettKoordinaten(ev.clientX, ev.clientY);
+                    const besetzt = (pos.zeile !== start.startZeile || pos.spalte !== start.startSpalte) && 
+                                    (zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1]?.[pos.spalte]);
+                    
+                    domZielGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(inst.typ)}</svg>`;
+                    domZielGeist.style.left = (pos.spalte * FELD_SCHRITT) + 'px';
+                    domZielGeist.style.top  = (pos.zeile  * FELD_SCHRITT) + 'px';
+                    domZielGeist.style.borderColor = besetzt ? '#e74c3c' : '#3498db';
+                    domZielGeist.style.display = 'block';
+                } else {
+                    domZielGeist.style.display = 'none';
+                }
+            };
             const onUp = (ev) => {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
+                if (domSchwebeGeist) { domSchwebeGeist.remove(); domSchwebeGeist = null; }
+                domZielGeist.style.display = 'none';
+                domZielGeist.innerHTML = '';
+                modulEl.style.opacity = '1';
                 endeVerschiebung(ev.clientX, ev.clientY, start);
             };
             document.addEventListener('mousemove', onMove);
@@ -1363,14 +1625,60 @@
             const start = startVerschiebung(0, 0);
             if (!start) return;
             e.preventDefault();
+
+            const inst = zustand.instanzen[modulId];
+            
+            if (domSchwebeGeist) domSchwebeGeist.remove();
+            domSchwebeGeist = document.createElement('div');
+            domSchwebeGeist.className = 'schwebe-geist';
+            domSchwebeGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(inst.typ)}</svg>`;
+            const touch0 = e.touches[0];
+            domSchwebeGeist.style.left = touch0.clientX + 'px';
+            domSchwebeGeist.style.top = touch0.clientY + 'px';
+            document.body.appendChild(domSchwebeGeist);
+
+            modulEl.style.pointerEvents = 'none';
+            modulEl.style.opacity = '0.3';
+
+            const onMove = (ev) => {
+                const t = ev.touches[0];
+                if (domSchwebeGeist) {
+                    domSchwebeGeist.style.left = t.clientX + 'px';
+                    domSchwebeGeist.style.top = t.clientY + 'px';
+                }
+                const brettRect = domBrettGitter.getBoundingClientRect();
+                if (t.clientX >= brettRect.left && t.clientX <= brettRect.right &&
+                    t.clientY >= brettRect.top && t.clientY <= brettRect.bottom) {
+                    const pos = brettKoordinaten(t.clientX, t.clientY);
+                    const besetzt = (pos.zeile !== start.startZeile || pos.spalte !== start.startSpalte) && 
+                                    (zustand.brettBelegt[pos.zeile][pos.spalte] || zustand.brettBelegt[pos.zeile + 1]?.[pos.spalte]);
+                    
+                    domZielGeist.innerHTML = `<svg class="modul-svg" viewBox="0 0 120 240">${kompiliertesSVG(inst.typ)}</svg>`;
+                    domZielGeist.style.left = (pos.spalte * FELD_SCHRITT) + 'px';
+                    domZielGeist.style.top  = (pos.zeile  * FELD_SCHRITT) + 'px';
+                    domZielGeist.style.borderColor = besetzt ? '#e74c3c' : '#3498db';
+                    domZielGeist.style.display = 'block';
+                } else {
+                    domZielGeist.style.display = 'none';
+                }
+            };
+
             const onEnd = (ev) => {
+                document.removeEventListener('touchmove', onMove);
                 modulEl.removeEventListener('touchend', onEnd);
                 modulEl.removeEventListener('touchcancel', onEnd);
+                
+                if (domSchwebeGeist) { domSchwebeGeist.remove(); domSchwebeGeist = null; }
+                domZielGeist.style.display = 'none';
+                domZielGeist.innerHTML = '';
+                modulEl.style.opacity = '1';
+
                 if (ev.changedTouches.length > 0) {
                     const t = ev.changedTouches[0];
                     endeVerschiebung(t.clientX, t.clientY, start);
                 }
             };
+            document.addEventListener('touchmove', onMove, { passive: false });
             modulEl.addEventListener('touchend', onEnd);
             modulEl.addEventListener('touchcancel', onEnd);
         }, { passive: false });
@@ -1405,6 +1713,39 @@
      * [15] VERDRAHTUNG
      * ================================================================ */
 
+    /**
+     * Traces a port upstream through input-to-input chains
+     * until it finds an output port. Returns the output port ID, or null.
+     */
+    function findeAusgangQuelle(portId, besucht) {
+        if (!besucht) besucht = new Set();
+        if (besucht.has(portId)) return null;
+        besucht.add(portId);
+
+        const el = document.getElementById(portId);
+        if (!el) return null;
+        if (el.dataset.type === 'out') return portId;
+
+        // Find all wires connected to this input — check both port1 and port2
+        // because input-to-input wires can be drawn in any direction
+        const wires = zustand.verbindungen.filter(v => v.port1 === portId || v.port2 === portId);
+        if (wires.length === 0) return null;
+
+        // Check for a direct output driver first
+        for (const w of wires) {
+            const otherId = (w.port1 === portId) ? w.port2 : w.port1;
+            const otherEl = document.getElementById(otherId);
+            if (otherEl && otherEl.dataset.type === 'out') return otherId;
+        }
+        // Otherwise follow input-to-input chains
+        for (const w of wires) {
+            const otherId = (w.port1 === portId) ? w.port2 : w.port1;
+            const result = findeAusgangQuelle(otherId, besucht);
+            if (result) return result;
+        }
+        return null;
+    }
+
     function portKlick(portEl) {
         if (zustand.aktuellerModus === 'loeschen') return;
 
@@ -1423,22 +1764,61 @@
             zustand.ausgewaehlterPort = null;
             if (zustand.temporaereVerbindung) { zustand.temporaereVerbindung.remove(); zustand.temporaereVerbindung = null; }
 
-            if (port1 === port2 || port1.dataset.type === port2.dataset.type) {
-                if (port1.dataset.type === 'out' && port2.dataset.type === 'out' && port1 !== port2) {
-                    document.getElementById('warnung-overlay').style.display = 'flex';
-                }
+            // Same port clicked twice — cancel
+            if (port1 === port2) return;
+
+            // Block output-to-output (short circuit)
+            if (port1.dataset.type === 'out' && port2.dataset.type === 'out') {
+                document.getElementById('warnung-overlay').style.display = 'flex';
                 return;
             }
 
-            const ausgangId = (port1.dataset.type === 'out') ? port1.id : port2.id;
-            const eingangId = (port1.dataset.type === 'in')  ? port1.id : port2.id;
+            let sourceId, targetId;
+            if (port1.dataset.type === 'out' && port2.dataset.type === 'in') {
+                sourceId = port1.id;
+                targetId = port2.id;
+            } else if (port1.dataset.type === 'in' && port2.dataset.type === 'out') {
+                sourceId = port2.id;
+                targetId = port1.id;
+            } else {
+                sourceId = port1.id;
+                targetId = port2.id;
+            }
 
-            zustand.verbindungen = zustand.verbindungen.filter(v => {
-                if (v.port2 === eingangId) { v.domGruppe.remove(); return false; }
-                return true;
-            });
+            // Global short-circuit check: check that both trace to the SAME ultimate output,
+            // or at least one of them has no output yet.
+            const srcOut = findeAusgangQuelle(sourceId);
+            const tgtOut = findeAusgangQuelle(targetId);
+            if (srcOut && tgtOut && srcOut !== tgtOut) {
+                // Two different outputs would be shorted together — block it
+                document.getElementById('warnung-overlay').style.display = 'flex';
+                return;
+            }
 
-            verbindungHerstellen(ausgangId, eingangId, zustand.vorschauFarbe);
+            // Remove existing wires that connect DIRECTLY to this target if it's an output replacing another output
+            // (Only necessary if a user clicks out->in directly and the 'in' was ONLY driven by that old out)
+            const srcEl = document.getElementById(sourceId);
+            if (srcEl && srcEl.dataset.type === 'out') {
+                zustand.verbindungen = zustand.verbindungen.filter(v => {
+                    if (v.port1 === targetId || v.port2 === targetId) {
+                        const otherId = (v.port1 === targetId) ? v.port2 : v.port1;
+                        const otherEl = document.getElementById(otherId);
+                        if (otherEl && otherEl.dataset.type === 'out') {
+                            v.domGruppe.remove();
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+            }
+            // Check for duplicate wire
+            const duplikat = zustand.verbindungen.find(v =>
+                (v.port1 === sourceId && v.port2 === targetId) ||
+                (v.port1 === targetId && v.port2 === sourceId)
+            );
+            if (duplikat) return;
+
+            verbindungHerstellen(sourceId, targetId, zustand.vorschauFarbe);
         }
     }
 
@@ -1568,6 +1948,7 @@
      * Löscht alle bestehenden Module (außer Clock) und Verbindungen.
      */
     function schaltungLaden(daten) {
+        window.schaltungLaden = schaltungLaden;
         // Alles löschen
         const zuLoeschen = Object.keys(zustand.instanzen).filter(id => zustand.instanzen[id].typ !== 'CLOCK');
         zuLoeschen.forEach(id => modulEntfernen(id));
@@ -1666,10 +2047,14 @@
      * ================================================================ */
 
     function eingangLesen(portId, standard = 1) {
-        const v = zustand.verbindungen.find(v => v.port2 === portId);
-        if (!v) return standard;
-        const wert = zustand.knotenWerte[v.port1];
-        return (wert !== undefined) ? wert : 0;
+        // Just resolve to the ultimate output source directly.
+        // findeAusgangQuelle correctly traces bidirectional input-to-input chains.
+        const outSourceId = findeAusgangQuelle(portId);
+        if (outSourceId) {
+            const wert = zustand.knotenWerte[outSourceId];
+            return (wert !== undefined) ? wert : 0;
+        }
+        return standard;
     }
 
     function ausgangSetzen(portId, wert) {
@@ -1704,9 +2089,11 @@
                 case 'CLOCK': {
                     ausgangSetzen(`${id}_0`, 0);
                     const tasterWert = iz.tasterGedrueckt || 0;
-                    const orErgebnis = tasterWert | eingangLesen(`${id}_L_BTN`, 0) | eingangLesen(`${id}_L_OR`, 0);
+                    ausgangSetzen(`${id}_M_LEFT`, tasterWert);
+                    ausgangSetzen(`${id}_M_RIGHT`, tasterWert);
+                    const orErgebnis = tasterWert | eingangLesen(`${id}_L_OR`, 0);
                     ausgangSetzen(`${id}_OR_OUT`, orErgebnis);
-                    ledAktualisieren(`${id}_LED_OR`, orErgebnis);
+                    ledAktualisieren(`${id}_LED_OR`, tasterWert);
                     const resetAktiv = eingangLesen(`${id}_R`, 1);
                     if (resetAktiv === 1) {
                         ausgangSetzen(`${id}_C50_O`, 0); ausgangSetzen(`${id}_C2`, 0);
@@ -1744,7 +2131,6 @@
                 case 'INV4': { for (let k=0;k<4;k++) { const r=(eingangLesen(`${id}_A${k}`)===0)?1:0; ausgangSetzen(`${id}_Q${k}`,r); if(k===0)ledAktualisieren(`${id}_L0`,r); } break; }
 
                 case 'MUX': {
-                    ausgangSetzen(`${id}_0`, 0);
                     const sel = eingangLesen(`${id}_S`);
                     for (let k = 0; k < 4; k++) {
                         ausgangSetzen(`${id}_Q${k}`, sel === 0 ? eingangLesen(`${id}_A${k}`) : eingangLesen(`${id}_B${k}`));
@@ -1838,9 +2224,819 @@
     }
 
     /* ================================================================
-     * [19] APP-START
+     * [19] SCHALTPLAN SVG EXPORT (IEC Standard)
      * ================================================================ */
 
+    function schaltplanExportieren() {
+        // Create selection modal dynamically
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        overlay.style.zIndex = '9999';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.innerHTML = `
+            <div style="background:white; padding:25px; border-radius:8px; text-align:center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-family:'Segoe UI', sans-serif; max-width:400px; width:90%;">
+                <h3 style="margin-top:0; color:#2c3e50; margin-bottom:10px;">Schaltplan exportieren</h3>
+                <p style="color:#7f8c8d; font-size:13px; margin-bottom:20px; line-height:1.4;">Wählen Sie das gewünschte Exportformat:</p>
+                <button id="btn-exp-steckbrett" style="display:block; width:100%; padding:12px; margin-bottom:10px; background:#3498db; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px; transition: background 0.2s;">Steckbrett-Ansicht (Kompakt, Netz-IDs)</button>
+                <button id="btn-exp-iec" style="display:block; width:100%; padding:12px; margin-bottom:20px; background:#2ecc71; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px; transition: background 0.2s;">IEC-Schaltplan (Logik-Gatter, Verdrahtet)</button>
+                <button id="btn-exp-cancel" style="display:block; width:100%; padding:8px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">Abbrechen</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // Hover effects
+        const b1 = overlay.querySelector('#btn-exp-steckbrett');
+        const b2 = overlay.querySelector('#btn-exp-iec');
+        b1.onmouseover = () => b1.style.background = '#2980b9';
+        b1.onmouseout = () => b1.style.background = '#3498db';
+        b2.onmouseover = () => b2.style.background = '#27ae60';
+        b2.onmouseout = () => b2.style.background = '#2ecc71';
+
+        overlay.querySelector('#btn-exp-cancel').onclick = () => { overlay.remove(); };
+        b1.onclick = () => { overlay.remove(); exportiereSteckbrettSchaltplan(); };
+        b2.onclick = () => { overlay.remove(); exportiereIecSchaltplan(); };
+    }
+
+    /* Option 1: Steckbrett-Ansicht mit 72% Skalierung und Net-Nummern (Keine Leitungen) */
+    function exportiereSteckbrettSchaltplan() {
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        let netCounter = 1;
+        const portNets = {};
+        const outputNetIds = {}; // Maps output port ID → net ID
+
+        // Assign a net ID to every port that traces back to an output.
+        // Uses findeAusgangQuelle to follow input-to-input chains.
+        function getOrCreateNet(outputPortId) {
+            if (!outputNetIds[outputPortId]) {
+                outputNetIds[outputPortId] = netCounter++;
+            }
+            return outputNetIds[outputPortId];
+        }
+
+        // First pass: find all output ports that participate in connections
+        const allConnectedPorts = new Set();
+        zustand.verbindungen.forEach(v => {
+            allConnectedPorts.add(v.port1);
+            allConnectedPorts.add(v.port2);
+        });
+
+        // For every connected port, resolve its ultimate output source and assign the same net ID
+        allConnectedPorts.forEach(portId => {
+            const ultimateOutput = findeAusgangQuelle(portId);
+            if (ultimateOutput) {
+                const netId = getOrCreateNet(ultimateOutput);
+                portNets[portId] = netId;
+            }
+        });
+
+        const moduleHeights = {};
+        for (const modId in zustand.instanzen) {
+            const inst = zustand.instanzen[modId];
+            const def = MODUL_DEFINITIONEN[inst.typ];
+            const x = parseInt(inst.el.style.left);
+            const y = parseInt(inst.el.style.top);
+            
+            let maxPortY = 0;
+            def.ports.forEach(p => { if (p.y > maxPortY) maxPortY = p.y; });
+            const h = Math.max(FELD_GROESSE, maxPortY + 20);
+            moduleHeights[modId] = h;
+
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + FELD_GROESSE);
+            maxY = Math.max(maxY, y + h);
+        }
+
+        if (minX === Infinity) { alert('Keine Gatter platziert oder verbunden.'); return; }
+
+        minX -= 60; minY -= 60;
+        maxX += 60; maxY += 60;
+        const totalWidth = maxX - minX;
+        const totalHeight = maxY - minY;
+
+        let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}">
+<style>
+  text { font-family: 'Segoe UI', Arial, sans-serif; }
+  .logik-pfad { fill: none; stroke: black; stroke-width: 1.5px; }
+  .logik-text { fill: black; font-family: sans-serif; font-size: 13px; font-weight: bold; }
+  .segment { fill: #333; }
+</style>
+<rect x="${minX}" y="${minY}" width="${totalWidth}" height="${totalHeight}" fill="#f4f5f6"/>`;
+
+        const SCALE_FACTOR = 0.72;
+        for (const modId in zustand.instanzen) {
+            const inst = zustand.instanzen[modId];
+            const def = MODUL_DEFINITIONEN[inst.typ];
+            const x = parseInt(inst.el.style.left);
+            const y = parseInt(inst.el.style.top);
+            const w = FELD_GROESSE;
+            const h = moduleHeights[modId];
+            const cx = w / 2;
+            const cy = h / 2;
+
+            svg += `<g transform="translate(${x}, ${y})">`;
+            svg += `<g transform="translate(${cx}, ${cy}) scale(${SCALE_FACTOR}) translate(${-cx}, ${-cy})">`;
+            svg += `<rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#bdc3c7" stroke-width="1.5"/>`;
+            svg += `<text x="${w/2}" y="${h - 8}" text-anchor="middle" font-size="10" font-weight="bold" fill="#7f8c8d">${def.name}</text>`;
+
+            let innerSvg = typeof def.svg === 'function' ? def.svg() : def.svg;
+            svg += innerSvg;
+
+            if (inst.typ === 'IN4') {
+                for(let i=0; i<4; i++) svg += `<rect x="25" y="${23+i*45}" width="20" height="24" fill="#bdc3c7" stroke="#7f8c8d" rx="2"/>`;
+            } else if (inst.typ === 'CLOCK') {
+                svg += `<circle cx="27" cy="55" r="10" fill="#e74c3c"/>`;
+            } else if (inst.typ === 'HEX') {
+                svg += `<rect x="39" y="68" width="37" height="52" fill="#000" rx="2"/><text x="57" y="105" fill="#e74c3c" font-size="36" font-family="monospace" text-anchor="middle">8</text>`;
+            }
+
+            def.ports.forEach(p => {
+                const px = p.x;
+                const py = p.y;
+                const isOut = p.type === 'out';
+                const portId = `${modId}_${p.id}`;
+                const netId = portNets[portId];
+                const isConnected = netId !== undefined;
+                
+                if (isConnected) {
+                    svg += `<rect x="${px-3}" y="${py-6}" width="6" height="12" rx="1.5" fill="#34495e"/>`;
+                    svg += `<circle cx="${px}" cy="${py}" r="1.5" fill="${isOut ? '#e74c3c' : '#3498db'}"/>`;
+                }
+                
+                if (p.lbl) {
+                    const lx = p.align === 'right' ? px + 8 : (p.align === 'left' ? px - 8 : px);
+                    const ly = p.align === 'top' ? py - 8 : py + 3;
+                    const anchor = p.align === 'right' ? 'start' : (p.align === 'left' ? 'end' : 'middle');
+                    svg += `<text x="${lx}" y="${ly}" font-size="8" text-anchor="${anchor}">${p.lbl}</text>`;
+                }
+            });
+
+            if (def.leds) {
+                def.leds.forEach(l => {
+                    svg += `<circle cx="${l.x}" cy="${l.y}" r="5" fill="#c0392b" stroke="#000"/>`;
+                });
+            }
+
+            svg += `</g>`; // End Scaled Group
+
+            def.ports.forEach(p => {
+                const px = p.x;
+                const py = p.y;
+                const isOut = p.type === 'out';
+                const portId = `${modId}_${p.id}`;
+                const netId = portNets[portId];
+                const isConnected = netId !== undefined;
+                
+                if (isConnected) {
+                    const px_scaled = cx + (px - cx) * SCALE_FACTOR;
+                    const py_scaled = cy + (py - cy) * SCALE_FACTOR;
+                    const nx = isOut ? px_scaled + 8 : px_scaled - 8;
+                    const color = isOut ? '#2ecc71' : '#27ae60';
+                    const anchor = isOut ? 'start' : 'end';
+                    svg += `<text x="${nx}" y="${py_scaled + 3}" font-size="9" font-weight="bold" fill="${color}" text-anchor="${anchor}">[${netId}]</text>`;
+                }
+            });
+
+            svg += `</g>`;
+        }
+
+        svg += `</svg>`;
+
+        zeigeSvgVorschau(svg, 'simulog-schaltplan-steckbrett.svg');
+    }
+
+    /* Option 2: Klassischer IEC-Standard Schaltplan mit Interval-Routing und Branch-Knobs */
+    function exportiereIecSchaltplan() {
+        const GATE_CONFIGS = {
+            'AND4':  { symbol: '&amp;',   h: 30, w: 40, inputs: ['A', 'B'],     outputs: ['Q'],    negiert: false },
+            'NAND4': { symbol: '&amp;',   h: 30, w: 40, inputs: ['A', 'B'],     outputs: ['Q'],    negiert: true  },
+            'OR4':   { symbol: '≥1',  h: 30, w: 40, inputs: ['A', 'B'],     outputs: ['Q'],    negiert: false },
+            'NOR4':  { symbol: '≥1',  h: 30, w: 40, inputs: ['A', 'B'],     outputs: ['Q'],    negiert: true  },
+            'INV4':  { symbol: '1',   h: 30, w: 40, inputs: ['A'],          outputs: ['Q'],    negiert: true  },
+            'XOR4':  { symbol: '=1',  h: 30, w: 40, inputs: ['A', 'B'],     outputs: ['Q'],    negiert: false },
+            'MUX':   { symbol: 'MUX', h: 45, w: 40, inputs: ['A', 'B', 'S'],outputs: ['Q'],    negiert: false },
+            'ADD':   { symbol: '∑',   h: 50, w: 45, inputs: ['Cin', 'A', 'B'], outputs: ['Cout', 'S'], negiert: false },
+            'JK':    { symbol: 'JK',  h: 65, w: 45, inputs: ['J', 'C', 'K', 'S', 'R'], outputs: ['Q', 'nQ'], negiert: false },
+            'HEX':   { symbol: 'HEX', h: 65, w: 45, inputs: ['E', 'I0', 'I1', 'I2', 'I3', 'RBI'], outputs: ['RBO'], negiert: false },
+            'SR4':   { symbol: 'SR',  h: 80, w: 45, inputs: ['CLK', 'LD', 'SI', 'R', 'P0', 'P1', 'P2', 'P3'], outputs: ['Q0', 'Q1', 'Q2', 'Q3'], negiert: false }
+        };
+
+        // Helper to parse board port names to logical owner structures
+        function getPortOwner(portId) {
+            const parts = portId.split('_');
+            const modId = parts[0];
+            const name = parts.slice(1).join('_');
+            const inst = zustand.instanzen[modId];
+            if (!inst) return null;
+
+            if (inst.typ === 'IN4') {
+                if (name.startsWith('O')) return { type: 'input', inputId: modId, index: parseInt(name.slice(1)) };
+            }
+            if (inst.typ === 'OUT4') {
+                if (name.startsWith('I')) return { type: 'output', outputId: modId, index: parseInt(name.slice(1)) };
+            }
+            if (inst.typ === 'CLOCK') {
+                const el = document.getElementById(portId);
+                if (el && el.dataset.type === 'out') {
+                    let nameLabel = 'CLK'; // fallback for M_RIGHT / OR_OUT etc
+                    if (name === 'C50_O') nameLabel = '50:1';
+                    if (name === 'C60') nameLabel = '60:1';
+                    if (name === 'C2') nameLabel = '2:1';
+                    if (name === '0') nameLabel = '0';
+                    return { type: 'input', inputId: modId, index: nameLabel, isClock: true };
+                }
+                return null;
+            }
+
+            const cfg = GATE_CONFIGS[inst.typ];
+            if (!cfg) return null;
+
+            let subIdx = 0;
+            let localName = name;
+
+            if (['AND4', 'NAND4', 'OR4', 'NOR4', 'INV4', 'XOR4', 'MUX'].includes(inst.typ)) {
+                // MUX 'S' input (EaEb select line)
+                if (name === 'S') return { type: 'gate', gateId: `${modId}_G0`, modId, subIdx: 0, localName: 'S', portType: 'in' };
+                const lastChar = name[name.length - 1];
+                if (['0','1','2','3'].includes(lastChar)) {
+                    subIdx = parseInt(lastChar);
+                    localName = name.slice(0, -1);
+                }
+            } else if (inst.typ === 'JK') {
+                const lastChar = name[name.length - 1];
+                if (['0','1'].includes(lastChar)) {
+                    subIdx = parseInt(lastChar);
+                    localName = name.slice(0, -1);
+                }
+            } else {
+                subIdx = 0;
+            }
+
+            // Check GATE_CONFIGS first, then fall back to the actual module definition's port type
+            let portType;
+            if (cfg.outputs.includes(localName)) {
+                portType = 'out';
+            } else if (cfg.inputs.includes(localName)) {
+                portType = 'in';
+            } else {
+                // Fallback: check the actual MODUL_DEFINITIONEN port for this name
+                const modDef = MODUL_DEFINITIONEN[inst.typ];
+                const modPort = modDef ? modDef.ports.find(p => p.id === name) : null;
+                portType = (modPort && modPort.type === 'out') ? 'out' : 'in';
+            }
+            return { type: 'gate', gateId: `${modId}_G${subIdx}`, modId, subIdx, localName, portType };
+        }
+
+        // Gather active nodes
+        const activeGatesMap = {};
+        const activeInputsMap = {};
+        const activeOutputsMap = {};
+
+        zustand.verbindungen.forEach(v => {
+            const o1 = getPortOwner(v.port1);
+            const o2 = getPortOwner(v.port2);
+            [o1, o2].forEach(o => {
+                if (!o) return;
+                if (o.type === 'gate') activeGatesMap[o.gateId] = { id: o.gateId, modId: o.modId, subIdx: o.subIdx };
+                if (o.type === 'input') activeInputsMap[`${o.inputId}_${o.index}`] = { id: o.inputId, index: o.index, isClock: o.isClock };
+                if (o.type === 'output') activeOutputsMap[`${o.outputId}_${o.index}`] = { id: o.outputId, index: o.index };
+            });
+        });
+
+        const activeGates = Object.values(activeGatesMap);
+        const activeInputs = Object.values(activeInputsMap);
+        const activeOutputs = Object.values(activeOutputsMap);
+
+        if (activeGates.length === 0 && activeInputs.length === 0 && activeOutputs.length === 0) {
+            alert('Keine verbundenen Bauteile vorhanden.');
+            return;
+        }
+
+        // Grid Compaction: Identify actually used columns and rows on the Steckbrett
+        activeGates.forEach(g => {
+            const inst = zustand.instanzen[g.modId];
+            g.spalte = Math.round(parseInt(inst.el.style.left) / FELD_SCHRITT);
+            g.zeile = Math.round(parseInt(inst.el.style.top) / FELD_SCHRITT);
+        });
+
+        const usedSpalten = Array.from(new Set(activeGates.map(g => g.spalte))).sort((a,b)=>a-b);
+        const usedZeilen = Array.from(new Set(activeGates.map(g => g.zeile))).sort((a,b)=>a-b);
+
+        const spaltenMap = {}; usedSpalten.forEach((s, idx) => { spaltenMap[s] = idx; });
+        const zeilenMap = {}; usedZeilen.forEach((z, idx) => { zeilenMap[z] = idx; });
+
+        // Placement constants
+        const col_spacing = 150;
+        const row_spacing = 160;
+
+        // Place Inputs on Left (Col 0)
+        activeInputs.forEach((inp, idx) => {
+            inp.x = 40;
+            inp.y = idx * 40 + 50;
+            inp.w = 50;
+            inp.h = 25;
+            inp.col = 0;
+            inp.row = 0;
+        });
+
+        // Place Gates (Col 1 to N)
+        activeGates.forEach(g => {
+            const inst = zustand.instanzen[g.modId];
+            g.typ = inst.typ;
+            g.col = spaltenMap[g.spalte] + 1;
+            g.row = zeilenMap[g.zeile];
+            g.w = GATE_CONFIGS[g.typ].w;
+            g.h = GATE_CONFIGS[g.typ].h;
+            g.x = g.col * col_spacing + 50;
+            g.y = g.row * row_spacing + g.subIdx * (g.h + 10) + 50;
+        });
+
+        // Place Outputs on Right
+        const outCol = usedSpalten.length + 1;
+        activeOutputs.forEach((out, idx) => {
+            out.x = outCol * col_spacing + 50;
+            out.y = idx * 40 + 50;
+            out.w = 50;
+            out.h = 25;
+            out.col = outCol;
+            out.row = 0;
+        });
+
+        // Gate enumerator numbering (type-specific)
+        const typeCounters = {};
+        activeGates.forEach(g => {
+            typeCounters[g.typ] = (typeCounters[g.typ] || 0) + 1;
+            g.num = typeCounters[g.typ];
+        });
+
+        // Initial viewport sizing
+        const maxX = outCol * col_spacing + 120;
+        let globalMaxY = 100;
+        let globalMinY = 0;
+        [...activeInputs, ...activeGates, ...activeOutputs].forEach(n => {
+            if (n.y + n.h > globalMaxY) globalMaxY = n.y + n.h;
+            if (n.y < globalMinY) globalMinY = n.y;
+        });
+
+        // Interval-based track allocation
+        const usedHorizontals = {};
+        const usedVerticals = {};
+        const TRACK_SPACING = 8;
+
+        function quantize(val) {
+            return Math.round(val / TRACK_SPACING) * TRACK_SPACING;
+        }
+
+        function blockRect(rectX, rectY, rectW, rectH, margin) {
+            const minX = rectX - margin;
+            const maxX = rectX + rectW + margin;
+            const minY = rectY - margin;
+            const maxY = rectY + rectH + margin;
+
+            for (let y = quantize(minY); y <= quantize(maxY); y += TRACK_SPACING) {
+                if (!usedHorizontals[y]) usedHorizontals[y] = [];
+                usedHorizontals[y].push([minX, maxX]);
+            }
+            for (let x = quantize(minX); x <= quantize(maxX); x += TRACK_SPACING) {
+                if (!usedVerticals[x]) usedVerticals[x] = [];
+                usedVerticals[x].push([minY, maxY]);
+            }
+        }
+
+        [...activeInputs, ...activeGates, ...activeOutputs].forEach(n => {
+            blockRect(n.x, n.y, n.w, n.h, 15);
+        });
+
+        function findFreeHorizontal(y_base, x_start, x_end) {
+            let y = quantize(y_base);
+            let offset = 0;
+            const xMin = Math.min(x_start, x_end);
+            const xMax = Math.max(x_start, x_end);
+            while (true) {
+                let candidateY = y + offset;
+                let hasOverlap = (usedHorizontals[candidateY] || []).some(interval => {
+                    return !(xMax <= interval[0] || xMin >= interval[1]);
+                });
+                if (!hasOverlap) {
+                    if (!usedHorizontals[candidateY]) usedHorizontals[candidateY] = [];
+                    usedHorizontals[candidateY].push([xMin, xMax]);
+                    return candidateY;
+                }
+                offset = offset >= 0 ? -offset - TRACK_SPACING : -offset;
+            }
+        }
+
+        function findFreeVertical(x_base, y_start, y_end, min_x = -Infinity, max_x = Infinity) {
+            let x = quantize(x_base);
+            let offset = 0;
+            const yMin = Math.min(y_start, y_end);
+            const yMax = Math.max(y_start, y_end);
+            while (true) {
+                let candidateX = x + offset;
+                let currentOffset = offset;
+                offset = currentOffset >= 0 ? -currentOffset - TRACK_SPACING : -currentOffset;
+                
+                if (candidateX < min_x || candidateX > max_x) continue;
+
+                let hasOverlap = (usedVerticals[candidateX] || []).some(interval => {
+                    return !(yMax <= interval[0] || yMin >= interval[1]);
+                });
+                if (!hasOverlap) {
+                    if (!usedVerticals[candidateX]) usedVerticals[candidateX] = [];
+                    usedVerticals[candidateX].push([yMin, yMax]);
+                    return candidateX;
+                }
+            }
+        }
+
+        // Resolve absolute port placement
+        function getPortAbsPos(owner) {
+            if (owner.type === 'input') {
+                const node = activeInputs.find(n => n.id === owner.inputId && n.index === owner.index);
+                return { x: node.x + node.w, y: node.y + node.h / 2, col: node.col, row: node.row, isTopOrBottom: false };
+            }
+            if (owner.type === 'output') {
+                const node = activeOutputs.find(n => n.id === owner.outputId && n.index === owner.index);
+                return { x: node.x, y: node.y + node.h / 2, col: node.col, row: node.row, isTopOrBottom: false };
+            }
+            if (owner.type === 'gate') {
+                const node = activeGates.find(n => n.id === owner.gateId);
+                if (!node) return null;
+                const { x, y, w, h } = node;
+                const cfg = GATE_CONFIGS[node.typ];
+                
+                const isTopOrBottom = (node.typ === 'JK' && (owner.localName === 'S' || owner.localName === 'R'));
+                
+                if (owner.portType === 'out') {
+                    if (node.typ === 'MUX') {
+                        return { x: x + w, y: y + 33, col: node.col, row: node.row, isTopOrBottom: false };
+                    }
+                    const outIdx = cfg.outputs.indexOf(owner.localName);
+                    if (cfg.outputs.length === 1) {
+                        return { x: x + w, y: y + h / 2, col: node.col, row: node.row, isTopOrBottom };
+                    } else {
+                        const step = h / (cfg.outputs.length + 1);
+                        return { x: x + w, y: y + step * (outIdx + 1), col: node.col, row: node.row, isTopOrBottom };
+                    }
+                } else {
+                    const inIdx = cfg.inputs.indexOf(owner.localName);
+                    if (node.typ === 'JK') {
+                        if (owner.localName === 'S') return { x: x + w / 2, y: y, col: node.col, row: node.row, isTopOrBottom };
+                        if (owner.localName === 'R') return { x: x + w / 2, y: y + h, col: node.col, row: node.row, isTopOrBottom };
+                        const leftInputs = ['J', 'C', 'K'];
+                        const leftIdx = leftInputs.indexOf(owner.localName);
+                        if (leftIdx !== -1) {
+                            return { x: x, y: y + (h / 4) * (leftIdx + 1), col: node.col, row: node.row, isTopOrBottom };
+                        }
+                    }
+                    if (cfg.inputs.length === 1) {
+                        return { x: x, y: y + h / 2, col: node.col, row: node.row, isTopOrBottom };
+                    } else {
+                        const step = h / (cfg.inputs.length + 1);
+                        return { x: x, y: y + step * (inIdx + 1), col: node.col, row: node.row, isTopOrBottom };
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Group connections into nets using the globally reliable findeAusgangQuelle
+        // to handle all multi-hop input-to-input chains correctly.
+        function getOwnerKey(o) {
+            if (!o) return "";
+            if (o.type === 'input') return `IN_${o.inputId}_${o.index}`;
+            if (o.type === 'output') return `OUT_${o.outputId}_${o.index}`;
+            return `GATE_${o.gateId}_${o.localName}`;
+        }
+
+        const nets = {};
+        zustand.verbindungen.forEach(v => {
+            // Find the ultimate output driver for this wire's network
+            const outId = findeAusgangQuelle(v.port1);
+            if (!outId) return; // Network has no output driver yet, skip
+
+            const driverOwner = getPortOwner(outId);
+            if (!driverOwner) return;
+
+            const driverKey = getOwnerKey(driverOwner);
+            
+            if (!nets[driverKey]) {
+                nets[driverKey] = { driver: driverOwner, receivers: [], farbe: v.farbe, _rcvSet: new Set() };
+            }
+
+            // Both ends of the wire are part of this net. 
+            // If they are not the driver, they are receivers.
+            const o1 = getPortOwner(v.port1);
+            const o2 = getPortOwner(v.port2);
+
+            [o1, o2].forEach(o => {
+                if (!o) return;
+                const rKey = getOwnerKey(o);
+                if (rKey !== driverKey && !nets[driverKey]._rcvSet.has(rKey)) {
+                    nets[driverKey]._rcvSet.add(rKey);
+                    nets[driverKey].receivers.push(o);
+                }
+            });
+        });
+
+        // Draw inputs and outputs
+        let gatesSvg = '';
+        
+        activeInputs.forEach((inp, idx) => {
+            const label = inp.isClock ? inp.index : `IN ${idx}`;
+            gatesSvg += `<rect x="${inp.x}" y="${inp.y}" width="${inp.w}" height="${inp.h}" fill="white" stroke="black" stroke-width="1.5" rx="4"/>`;
+            gatesSvg += `<text x="${inp.x+inp.w/2}" y="${inp.y+16}" text-anchor="middle" font-size="11" font-weight="bold">${label}</text>`;
+            const pX = inp.x + inp.w;
+            const pY = inp.y + inp.h/2;
+            gatesSvg += `<circle cx="${pX}" cy="${pY}" r="3" fill="white" stroke="black"/>`;
+        });
+
+        activeOutputs.forEach((out, idx) => {
+            gatesSvg += `<rect x="${out.x}" y="${out.y}" width="${out.w}" height="${out.h}" fill="white" stroke="black" stroke-width="1.5" rx="4"/>`;
+            gatesSvg += `<text x="${out.x+out.w/2}" y="${out.y+16}" text-anchor="middle" font-size="11" font-weight="bold">OUT ${idx}</text>`;
+            const pX = out.x;
+            const pY = out.y + out.h/2;
+            gatesSvg += `<circle cx="${pX}" cy="${pY}" r="3" fill="white" stroke="black"/>`;
+        });
+
+        // Draw gates
+        activeGates.forEach(g => {
+            const cfg = GATE_CONFIGS[g.typ];
+            gatesSvg += `<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" fill="white" stroke="black" stroke-width="1.5"/>`;
+            
+            if (g.typ === 'JK') {
+                const step = g.h / 4;
+                const cY = g.y + step * 2;
+                gatesSvg += `<polygon points="${g.x},${cY-5} ${g.x+7},${cY} ${g.x},${cY+5}" fill="none" stroke="black" stroke-width="1"/>`;
+                gatesSvg += `<text x="${g.x+6}" y="${g.y + step + 3}" font-size="9" font-family="sans-serif" font-weight="bold">J</text>`;
+                gatesSvg += `<text x="${g.x+6}" y="${g.y + step * 3 + 3}" font-size="9" font-family="sans-serif" font-weight="bold">K</text>`;
+                gatesSvg += `<text x="${g.x+g.w-13}" y="${g.y+15}" font-size="9" font-family="sans-serif" font-weight="bold">Q</text>`;
+                gatesSvg += `<text x="${g.x+g.w-13}" y="${g.y+g.h-6}" font-size="9" font-family="sans-serif" font-weight="bold">Q</text>`;
+                gatesSvg += `<line x1="${g.x+g.w-13}" y1="${g.y+g.h-15}" x2="${g.x+g.w-4}" y2="${g.y+g.h-15}" stroke="black" stroke-width="1"/>`;
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+9}" text-anchor="middle" font-size="6">S</text>`;
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+g.h-2}" text-anchor="middle" font-size="6">R</text>`;
+            } else if (g.typ === 'ADD') {
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+g.h/2+6}" text-anchor="middle" font-size="16" font-weight="bold">∑</text>`;
+            } else if (g.typ === 'MUX') {
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+15}" text-anchor="middle" font-size="10" font-weight="bold">MUX</text>`;
+                gatesSvg += `<text x="${g.x+2}" y="${g.y+13}" font-size="6">A</text>`;
+                gatesSvg += `<text x="${g.x+2}" y="${g.y+25}" font-size="6">B</text>`;
+                gatesSvg += `<text x="${g.x+2}" y="${g.y+36}" font-size="6">S</text>`;
+                gatesSvg += `<text x="${g.x+g.w-2}" y="${g.y+36}" text-anchor="end" font-size="6">Q</text>`;
+                
+                // Shared S line and constants
+                if (g.subIdx === 0) {
+                    const busX = g.x - 6;
+                    const busYStart = g.y + 33.75;
+                    const busYEnd = g.y + 3 * (g.h + 10) + 33.75;
+                    gatesSvg += `<line x1="${busX}" y1="${busYStart}" x2="${busX}" y2="${busYEnd}" stroke="black" stroke-width="1.5"/>`;
+                    for (let i = 0; i <= 3; i++) {
+                        let cy = g.y + i * (g.h + 10) + 33.75;
+                        gatesSvg += `<line x1="${busX}" y1="${cy}" x2="${g.x}" y2="${cy}" stroke="black" stroke-width="1.5"/>`;
+                        gatesSvg += `<circle cx="${busX}" cy="${cy}" r="1.5" fill="black"/>`;
+                    }
+                }
+            } else if (g.typ === 'HEX') {
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+15}" text-anchor="middle" font-size="12" font-weight="bold">HEX</text>`;
+                cfg.inputs.forEach((inpName, iIdx) => {
+                    const step = g.h / (cfg.inputs.length + 1);
+                    const pY = g.y + step * (iIdx + 1);
+                    gatesSvg += `<text x="${g.x+3}" y="${pY+3}" font-size="6" font-family="sans-serif">${inpName}</text>`;
+                });
+                cfg.outputs.forEach((outName, oIdx) => {
+                    const step = g.h / (cfg.outputs.length + 1);
+                    const pY = g.y + step * (oIdx + 1);
+                    gatesSvg += `<text x="${g.x+g.w-3}" y="${pY+3}" text-anchor="end" font-size="6" font-family="sans-serif">${outName}</text>`;
+                });
+            } else if (g.typ === 'SR4') {
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+10}" text-anchor="middle" font-size="8" font-weight="bold">SR4</text>`;
+                cfg.inputs.forEach((inpName, iIdx) => {
+                    const step = g.h / (cfg.inputs.length + 1);
+                    const pY = g.y + step * (iIdx + 1);
+                    gatesSvg += `<text x="${g.x+2}" y="${pY+2}" font-size="5" font-family="sans-serif">${inpName}</text>`;
+                });
+                cfg.outputs.forEach((outName, oIdx) => {
+                    const step = g.h / (cfg.outputs.length + 1);
+                    const pY = g.y + step * (oIdx + 1);
+                    gatesSvg += `<text x="${g.x+g.w-2}" y="${pY+2}" text-anchor="end" font-size="5" font-family="sans-serif">${outName}</text>`;
+                });
+            } else {
+                gatesSvg += `<text x="${g.x+g.w/2}" y="${g.y+g.h/2+5}" text-anchor="middle" font-size="13" font-weight="bold">${cfg.symbol}</text>`;
+                if (cfg.negiert) {
+                    gatesSvg += `<circle cx="${g.x+g.w+4}" cy="${g.y+g.h/2}" r="4" fill="white" stroke="black" stroke-width="1.5"/>`;
+                }
+            }
+            
+            // Draw ports and labels inside the group
+            let pCnt = 0;
+            const isJK = g.typ === 'JK';
+            const numLeftInputs = isJK ? 3 : cfg.inputs.length;
+            
+            cfg.inputs.forEach(p => {
+                if (isJK && (p === 'S' || p === 'R')) {
+                    if (p === 'S') gatesSvg += `<circle cx="${g.x + g.w/2}" cy="${g.y}" r="2" fill="black"/>`;
+                    if (p === 'R') gatesSvg += `<circle cx="${g.x + g.w/2}" cy="${g.y + g.h}" r="2" fill="black"/>`;
+                    return;
+                }
+                pCnt++;
+                let step = g.h / (numLeftInputs + 1);
+                let pY = g.y + step * pCnt;
+                if (numLeftInputs === 1) pY = g.y + g.h/2;
+                gatesSvg += `<circle cx="${g.x}" cy="${pY}" r="2" fill="black"/>`;
+            });
+            
+            if (cfg.negiert) {
+                gatesSvg += `<circle cx="${g.x+g.w+8}" cy="${g.y+g.h/2}" r="2" fill="black"/>`;
+            } else {
+                let step = g.h / (cfg.outputs.length + 1);
+                cfg.outputs.forEach((o, idx) => {
+                    let pY = g.y + step * (idx + 1);
+                    if (cfg.outputs.length === 1) pY = g.y + g.h/2;
+                    if (g.typ === 'MUX') pY = g.y + 33;
+                    gatesSvg += `<circle cx="${g.x+g.w}" cy="${pY}" r="2" fill="black"/>`;
+                });
+            }
+        });
+
+        // Draw Gate number
+        activeGates.forEach(g => {
+            gatesSvg += `<text x="${g.x+g.w-4}" y="${g.y+g.h-4}" text-anchor="end" font-size="12" font-weight="bold" fill="red">${g.num}</text>`;
+        });
+
+        // Draw Wires (Shortest-path Manhattan street-grid router)
+        let wiresSvg = '';
+        Object.values(nets).forEach(net => {
+            const src = getPortAbsPos(net.driver);
+            if (!src) return;
+
+            const wireColor = net.farbe === 'var(--wire-red)' ? '#e74c3c' : (net.farbe === 'var(--wire-blue)' ? '#3498db' : net.farbe);
+
+            const dsts = net.receivers.map(rcv => getPortAbsPos(rcv)).filter(Boolean);
+            if (dsts.length === 0) return;
+
+            const rx_base = src.col * col_spacing + 120;
+            let minY = src.y, maxY = src.y;
+            const routes = [];
+            
+            dsts.forEach(dst => {
+                let route = { dst };
+                if (dst.col === src.col + 1 && !dst.isTopOrBottom) {
+                    route.branchY = dst.y;
+                    route.type = 'direct';
+                } else {
+                    const hStreet1 = dst.row * row_spacing + 140; 
+                    const hStreet2 = (dst.row - 1) * row_spacing + 140;
+                    const hStreetBase = Math.abs(dst.y - hStreet1) < Math.abs(dst.y - hStreet2) ? hStreet1 : hStreet2;
+                    
+                    const hY = findFreeHorizontal(hStreetBase, rx_base, dst.x);
+                    route.branchY = hY;
+                    route.hY = hY;
+                    
+                    if (dst.isTopOrBottom) {
+                        route.type = 'top_bottom';
+                    } else {
+                        const lx_base = dst.col * col_spacing - 30;
+                        const lx = findFreeVertical(lx_base, Math.min(hY, dst.y), Math.max(hY, dst.y), -Infinity, dst.x - 15);
+                        route.lx = lx;
+                        route.type = 'far_normal';
+                    }
+                }
+                minY = Math.min(minY, route.branchY);
+                maxY = Math.max(maxY, route.branchY);
+                routes.push(route);
+            });
+            
+            const trunkX = findFreeVertical(rx_base, minY, maxY, src.x + 15);
+            
+            wiresSvg += `<path d="M ${src.x} ${src.y} L ${trunkX} ${src.y}" class="connection-wire" stroke="${wireColor}" fill="none"/>`;
+            
+            if (minY !== maxY) {
+                wiresSvg += `<line x1="${trunkX}" y1="${minY}" x2="${trunkX}" y2="${maxY}" class="connection-wire" stroke="${wireColor}"/>`;
+            }
+            
+            const knobs = new Set();
+            if (minY < src.y && maxY > src.y) {
+                wiresSvg += `<circle cx="${trunkX}" cy="${src.y}" r="2.5" fill="black"/>`;
+                knobs.add(src.y);
+            }
+            
+            routes.forEach(r => {
+                const dst = r.dst;
+                globalMaxY = Math.max(globalMaxY, r.branchY);
+                globalMinY = Math.min(globalMinY, r.branchY);
+                
+                if (r.branchY !== minY && r.branchY !== maxY) {
+                    if (!knobs.has(r.branchY)) {
+                        wiresSvg += `<circle cx="${trunkX}" cy="${r.branchY}" r="2.5" fill="black"/>`;
+                        knobs.add(r.branchY);
+                    }
+                }
+                
+                if (r.type === 'direct') {
+                    wiresSvg += `<line x1="${trunkX}" y1="${r.branchY}" x2="${r.dst.x}" y2="${r.dst.y}" class="connection-wire" stroke="${wireColor}"/>`;
+                } 
+                else if (r.type === 'top_bottom') {
+                    wiresSvg += `<path d="M ${trunkX} ${r.branchY} L ${r.dst.x} ${r.branchY} L ${r.dst.x} ${r.dst.y}" class="connection-wire" stroke="${wireColor}" fill="none"/>`;
+                }
+                else if (r.type === 'far_normal') {
+                    wiresSvg += `<path d="M ${trunkX} ${r.branchY} L ${r.lx} ${r.branchY} L ${r.lx} ${r.dst.y} L ${r.dst.x} ${r.dst.y}" class="connection-wire" stroke="${wireColor}" fill="none"/>`;
+                }
+            });
+        });
+
+        const margin = 50;
+        const totalWidth = maxX + margin * 2;
+        const totalHeight = globalMaxY - globalMinY + margin * 2;
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-margin} ${globalMinY - margin} ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}" style="background:white; font-family:sans-serif;">`;
+        svg += wiresSvg;
+        svg += gatesSvg;
+        svg += `</svg>`;
+        zeigeSvgVorschau(svg, 'simulog-schaltplan-standard.svg');
+    }
+
+    /**
+     * Shows an interactive SVG preview overlay with download, open-in-new-tab, and close buttons.
+     */
+    function zeigeSvgVorschau(svgString, dateiname) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;align-items:center;padding:20px;box-sizing:border-box;';
+
+        const toolbar = document.createElement('div');
+        toolbar.style.cssText = 'display:flex;gap:10px;margin-bottom:15px;flex-shrink:0;';
+
+        const btnStyle = 'padding:10px 20px;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:14px;transition:filter 0.15s;';
+
+        const btnDownload = document.createElement('button');
+        btnDownload.textContent = '💾 Herunterladen';
+        btnDownload.style.cssText = btnStyle + 'background:#2ecc71;';
+        btnDownload.onmouseover = () => btnDownload.style.filter = 'brightness(0.85)';
+        btnDownload.onmouseout  = () => btnDownload.style.filter = '';
+        btnDownload.onclick = () => {
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = dateiname; a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const btnNewTab = document.createElement('button');
+        btnNewTab.textContent = '🔗 In neuem Tab öffnen';
+        btnNewTab.style.cssText = btnStyle + 'background:#3498db;';
+        btnNewTab.onmouseover = () => btnNewTab.style.filter = 'brightness(0.85)';
+        btnNewTab.onmouseout  = () => btnNewTab.style.filter = '';
+        btnNewTab.onclick = () => {
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        };
+
+        const btnClose = document.createElement('button');
+        btnClose.textContent = '✕ Schließen';
+        btnClose.style.cssText = btnStyle + 'background:#e74c3c;';
+        btnClose.onmouseover = () => btnClose.style.filter = 'brightness(0.85)';
+        btnClose.onmouseout  = () => btnClose.style.filter = '';
+        btnClose.onclick = () => overlay.remove();
+
+        toolbar.appendChild(btnDownload);
+        toolbar.appendChild(btnNewTab);
+        toolbar.appendChild(btnClose);
+
+        const container = document.createElement('div');
+        container.style.cssText = 'background:white;border-radius:8px;padding:20px;max-width:95vw;max-height:calc(100vh - 100px);overflow:auto;box-shadow:0 4px 30px rgba(0,0,0,0.5);flex:1;min-height:0;';
+        container.innerHTML = svgString;
+        const svgEl = container.querySelector('svg');
+        if (svgEl) {
+            svgEl.style.maxWidth = '100%';
+            svgEl.style.height = 'auto';
+        }
+
+        overlay.appendChild(toolbar);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+        const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+        document.addEventListener('keydown', onKey);
+    }
+
+    /* ================================================================
+     * [20] APP-START
+     * ================================================================ */
+
+    window.schaltungLaden = schaltungLaden;
+    window.zustand = zustand;
     document.addEventListener('DOMContentLoaded', initialisieren);
 
 })();
