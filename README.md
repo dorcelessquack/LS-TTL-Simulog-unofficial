@@ -10,6 +10,8 @@ NEW (07.07.2026):
 * drag and drop from the inventory AND existing pieces on the board are visualized correctly
 * experimental logic diagram generator
 * board connection plan generator ("Steckbrettanleitung")
+---------------------------------------------------------
+
 
 * grid board: 6x4 layout matching the original board
 * wire connections: draw colored cables between ports (red or blue), so you can have a cable salad just like the real deal
