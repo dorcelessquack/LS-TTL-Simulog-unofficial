@@ -4,6 +4,12 @@ A simple browser replica (self-contained HTML) of SIMULOG, the educational hardw
 # IMPORTANT: It is made for german-speaking audiences only. I do not plan to make any translations or region/language detection as of now.
 
 ## Features
+NEW (07.07.2026): 
+* reworked visuals
+* now input-to-input connections and bridges work properly
+* drag and drop from the inventory AND existing pieces on the board are visualized correctly
+* experimental logic diagram generator
+* board connection plan generator ("Steckbrettanleitung")
 
 * grid board: 6x4 layout matching the original board
 * wire connections: draw colored cables between ports (red or blue), so you can have a cable salad just like the real deal
